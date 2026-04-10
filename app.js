@@ -22,7 +22,6 @@ const state = {
   filterPanelVisible: false,
   search: "",
   swipedGroupKey: null,
-  modalGroupKey: null,
   batches: loadBatches(),
   formError: "",
   form: createDefaultForm(),
@@ -88,6 +87,13 @@ function formatDisplayDate(date) {
   return `${value.getFullYear()}年${value.getMonth() + 1}月${value.getDate()}日`;
 }
 
+function formatCreatedDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setHours(0, 0, 0, 0);
+  return formatDisplayDate(date);
+}
+
 function formatShortDate(date) {
   return formatIsoDate(date).replace(/^\d{4}-/, "");
 }
@@ -137,94 +143,29 @@ function createBatchRecord({ id, name, category, productionDate, shelfLifeValue,
   };
 }
 
-function groupProductsByName(batches, today = new Date()) {
-  const map = new Map();
-  for (const batch of batches) {
-    const key = batch.normalizedName || normalizeName(batch.name);
-    const status = batch.archived
-      ? "archived"
-      : getBatchStatus({ removalDate: batch.removalDate, expiryDate: batch.expiryDate, today });
-    if (!map.has(key)) {
-      map.set(key, { key, name: batch.name, category: batch.category, batches: [] });
-    }
-    map.get(key).batches.push({ ...batch, status });
-  }
-  return Array.from(map.values())
-    .map((group) => {
-      group.batches.sort((left, right) => left.expiryDate.localeCompare(right.expiryDate));
-      const visible = group.batches.filter((batch) => !batch.archived);
-      const reference = visible[0] || group.batches[0];
-      return {
-        ...group,
-        referenceStatus: reference?.status || "active",
-        activeCount: visible.length,
-        archivedCount: group.batches.length - visible.length,
-      };
-    })
-    .sort((left, right) => {
-      const leftDate = left.batches[0]?.expiryDate || "9999-12-31";
-      const rightDate = right.batches[0]?.expiryDate || "9999-12-31";
-      return leftDate.localeCompare(rightDate) || compareName(left.name, right.name);
-    });
-}
-
-function summarizeProductGroup(group, today = new Date()) {
-  const activeBatches = group.batches.filter((batch) => !batch.archived);
-  const nextBatch = activeBatches[0] || group.batches[0] || null;
-  if (!nextBatch) {
-    return { nextBatch: null, removalCountdown: null, expiryCountdown: null, status: "active" };
-  }
+function enrichBatch(batch, today = new Date()) {
+  const status = batch.archived
+    ? "archived"
+    : getBatchStatus({ removalDate: batch.removalDate, expiryDate: batch.expiryDate, today });
   return {
-    nextBatch,
-    removalCountdown: daysUntil(nextBatch.removalDate, today),
-    expiryCountdown: daysUntil(nextBatch.expiryDate, today),
-    status: nextBatch.status,
+    ...batch,
+    status,
+    removalCountdown: daysUntil(batch.removalDate, today),
+    expiryCountdown: daysUntil(batch.expiryDate, today),
   };
 }
 
-function getAllRecordsForGroup(groupKey) {
-  const groups = groupProductsByName(state.batches, new Date());
-  const group = groups.find((item) => item.key === groupKey);
-  if (!group) return null;
-  return {
-    ...group,
-    batches: [...group.batches]
-      .filter((batch) => !batch.archived)
-      .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate)),
-  };
-}
-
-function sortProductGroups(groups, sortBy = "urgency", today = new Date()) {
+function sortBatchRecords(records, sortBy = "urgency", today = new Date()) {
   const statusRank = { expired: 0, removeSoon: 1, upcomingRemove: 2, active: 3, archived: 4 };
-  return [...groups].sort((left, right) => {
-    const leftSummary = summarizeProductGroup(left, today);
-    const rightSummary = summarizeProductGroup(right, today);
+  return [...records].sort((left, right) => {
     if (sortBy === "name") return compareName(left.name, right.name);
     if (sortBy === "createdAt") {
-      const leftCreatedAt = left.batches.reduce((latest, batch) => (
-        !latest || String(batch.createdAt || "") > latest ? String(batch.createdAt || "") : latest
-      ), "");
-      const rightCreatedAt = right.batches.reduce((latest, batch) => (
-        !latest || String(batch.createdAt || "") > latest ? String(batch.createdAt || "") : latest
-      ), "");
-      return rightCreatedAt.localeCompare(leftCreatedAt) || compareName(left.name, right.name);
-    }
-    if (sortBy === "removalDate") {
-      return (
-        (leftSummary.nextBatch?.removalDate || "9999-12-31").localeCompare(rightSummary.nextBatch?.removalDate || "9999-12-31") ||
-        compareName(left.name, right.name)
-      );
-    }
-    if (sortBy === "expiryDate") {
-      return (
-        (leftSummary.nextBatch?.expiryDate || "9999-12-31").localeCompare(rightSummary.nextBatch?.expiryDate || "9999-12-31") ||
-        compareName(left.name, right.name)
-      );
+      return String(right.createdAt || "").localeCompare(String(left.createdAt || "")) || compareName(left.name, right.name);
     }
     return (
-      statusRank[leftSummary.status] - statusRank[rightSummary.status] ||
-      (leftSummary.nextBatch?.removalDate || "9999-12-31").localeCompare(rightSummary.nextBatch?.removalDate || "9999-12-31") ||
-      (leftSummary.nextBatch?.expiryDate || "9999-12-31").localeCompare(rightSummary.nextBatch?.expiryDate || "9999-12-31") ||
+      statusRank[left.status] - statusRank[right.status] ||
+      String(left.removalDate || "9999-12-31").localeCompare(String(right.removalDate || "9999-12-31")) ||
+      String(left.expiryDate || "9999-12-31").localeCompare(String(right.expiryDate || "9999-12-31")) ||
       compareName(left.name, right.name)
     );
   });
@@ -271,34 +212,29 @@ function getCategoryMeta(categoryId) {
 }
 
 function getCounts() {
-  const groups = groupProductsByName(state.batches, new Date());
   const activeBatches = state.batches.filter((batch) => !batch.archived);
   const removeSoon = activeBatches.filter((batch) => batch.removalDate <= todayIso && batch.expiryDate >= todayIso).length;
   const expired = activeBatches.filter((batch) => batch.expiryDate < todayIso).length;
   return {
-    groupCount: groups.length,
+    groupCount: activeBatches.length,
     activeBatchCount: activeBatches.length,
     removeSoon,
     expired,
   };
 }
 
-function getVisibleGroups() {
-  const groups = groupProductsByName(state.batches, new Date())
-    .map((group) => {
-      if (state.categoryFilters.length && !state.categoryFilters.includes(group.category)) return null;
-      const matchedBatches = group.batches.filter((batch) => {
-        if (state.search && !batch.name.includes(state.search.trim())) return false;
-        if (state.filter !== "all" && batch.archived) return false;
-        if (state.filter === "attention" && batch.status === "active") return false;
-        if (state.filter === "all" && batch.archived) return true;
-        return true;
-      });
-      if (!matchedBatches.length) return null;
-      return { ...group, batches: matchedBatches };
-    })
-    .filter(Boolean);
-  return sortProductGroups(groups, state.filter === "all" ? "createdAt" : "urgency", new Date());
+function getVisibleBatches() {
+  const today = new Date();
+  const records = state.batches
+    .filter((batch) => !batch.archived)
+    .map((batch) => enrichBatch(batch, today))
+    .filter((batch) => {
+      if (state.categoryFilters.length && !state.categoryFilters.includes(batch.category)) return false;
+      if (state.search && !batch.name.includes(state.search.trim())) return false;
+      if (state.filter === "attention" && batch.status === "active") return false;
+      return true;
+    });
+  return sortBatchRecords(records, state.filter === "all" ? "createdAt" : "urgency", today);
 }
 
 function getPreview(formState) {
@@ -316,19 +252,19 @@ function getPreview(formState) {
 
 function render() {
   let counts;
-  let groups;
+  let records;
   try {
     counts = getCounts();
-    groups = getVisibleGroups();
+    records = getVisibleBatches();
   } catch (error) {
     console.error("Render failed:", error);
     localStorage.removeItem(STORAGE_KEY);
     state.batches = [];
     counts = getCounts();
-    groups = getVisibleGroups();
+    records = getVisibleBatches();
   }
   const pageContent = state.page === "manage"
-    ? renderManagePage(counts, groups)
+    ? renderManagePage(counts, records)
     : state.page === "add"
       ? renderAddPage()
       : renderCalculatorPage();
@@ -337,7 +273,6 @@ function render() {
       ${pageContent}
       ${state.page === "manage" ? renderBottomNav() : ""}
       ${state.page === "manage" ? '<div class="fab-layer"><button class="fab" data-action="go-add">+</button></div>' : ""}
-      ${state.modalGroupKey ? renderRecordsModal() : ""}
     </div>
   `;
   bindInputs();
@@ -358,7 +293,7 @@ function renderBottomNav() {
   `;
 }
 
-function renderManagePage(counts, groups) {
+function renderManagePage(counts, records) {
   return `
     <header class="topbar">
       <div class="topbar-row">
@@ -392,7 +327,7 @@ function renderManagePage(counts, groups) {
     </header>
 
     <main class="content">
-      <div data-manage-list>${renderManageList(groups)}</div>
+      <div data-manage-list>${renderManageList(records)}</div>
     </main>
   `;
 }
@@ -418,9 +353,9 @@ function renderCategoryFilterPanel() {
   `;
 }
 
-function renderManageList(groups) {
-  return groups.length
-    ? `<div class="stack">${groups.map(renderProductCard).join("")}</div>`
+function renderManageList(records) {
+  return records.length
+    ? `<div class="stack">${records.map(renderProductCard).join("")}</div>`
     : `
       <section class="empty-state">
         <div>
@@ -535,116 +470,54 @@ function renderTab(filter, label) {
   return `<button class="tab ${state.filter === filter ? "active" : ""}" data-filter="${filter}">${label}</button>`;
 }
 
-function renderProductCard(group) {
-  const summary = summarizeProductGroup(group, new Date());
-  const productionItemClass = summary.status === "archived" ? "archived" : "";
-  const removalItemClass = summary.status === "expired"
+function renderProductCard(batch) {
+  const productionItemClass = batch.status === "archived" ? "archived" : "";
+  const removalItemClass = batch.status === "expired"
     ? "expired"
-    : summary.status === "removeSoon"
+    : batch.status === "removeSoon"
       ? "removeSoon"
-      : summary.status === "upcomingRemove"
+      : batch.status === "upcomingRemove"
         ? "upcomingRemove"
-        : summary.status === "archived"
+        : batch.status === "archived"
           ? "archived"
           : "";
-  const expiryItemClass = summary.status === "expired" ? "expired" : summary.status === "archived" ? "archived" : "";
-  const visibleCount = group.batches.filter((batch) => !batch.archived).length;
-  const extraCount = Math.max(visibleCount - 1, 0);
-  const archivedOnly = group.batches.every((batch) => batch.archived);
-  const swiped = state.swipedGroupKey === group.key;
+  const expiryItemClass = batch.status === "expired" ? "expired" : batch.status === "archived" ? "archived" : "";
+  const swiped = state.swipedGroupKey === batch.id;
 
   return `
-    <section class="product-card ${archivedOnly ? "archived-card" : ""} ${swiped ? "swiped" : ""}" data-swipe-key="${escapeHtml(group.key)}">
+    <section class="product-card ${batch.archived ? "archived-card" : ""} ${swiped ? "swiped" : ""}" data-swipe-key="${escapeHtml(batch.id)}">
       <div class="swipe-actions">
-        <button class="swipe-action archive" data-action="archive-group" data-key="${escapeHtml(group.key)}">下架</button>
-        <button class="swipe-action delete" data-action="delete-group" data-key="${escapeHtml(group.key)}">删除</button>
+        <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
+        <button class="swipe-action delete" data-action="delete-record" data-id="${escapeHtml(batch.id)}">删除</button>
       </div>
-      <div class="product-main" data-action="open-group" data-key="${escapeHtml(group.key)}">
+      <div class="product-main">
         <div class="product-head">
           <div class="product-head-main">
-            <div class="product-title">${escapeHtml(group.name)}</div>
-            <div class="product-meta">生产于 ${formatDisplayDate(summary.nextBatch.productionDate)}</div>
-            ${
-              archivedOnly
-                ? '<div class="multi-note">已下架，记录仍保留</div>'
-                : extraCount
-                  ? `<div class="multi-note">包含 ${visibleCount} 条同名记录，当前展示最早到期项 <button class="view-all-link" data-action="open-group" data-key="${escapeHtml(group.key)}">查看全部</button></div>`
-                  : ""
-            }
+            <div class="product-title">${escapeHtml(batch.name)}</div>
+            <div class="product-meta">添加于 ${formatCreatedDate(batch.createdAt) || formatDisplayDate(batch.productionDate)}</div>
           </div>
-          <span class="status-dot ${summary.status}">${statusText(summary.status)}</span>
+          <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
         </div>
 
         <div class="date-summary">
           <div class="date-summary-item ${productionItemClass}">
             <div class="date-summary-label">生产日期</div>
-            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.productionDate)}</div>
-            <div class="countdown">当前展示记录</div>
+            <div class="date-summary-value">${formatDisplayDate(batch.productionDate)}</div>
           </div>
           <div class="date-summary-item ${removalItemClass}">
             <div class="date-summary-label">下架日期</div>
-            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.removalDate)}</div>
-            <div class="countdown">${formatCountdown(summary.removalCountdown, "下架")}</div>
+            <div class="date-summary-value">${formatDisplayDate(batch.removalDate)}</div>
+            <div class="countdown">${formatCountdown(batch.removalCountdown, "下架")}</div>
           </div>
           <div class="date-summary-item ${expiryItemClass}">
             <div class="date-summary-label">过期日期</div>
-            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.expiryDate)}</div>
-            <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
+            <div class="date-summary-value">${formatDisplayDate(batch.expiryDate)}</div>
+            <div class="countdown">${formatExpiryCountdown(batch.expiryCountdown)}</div>
           </div>
         </div>
 
-        <div class="product-footer">
-          <span class="detail-hint">左滑可下架或删除</span>
-        </div>
       </div>
     </section>
-  `;
-}
-
-function renderRecordsModal() {
-  const group = getAllRecordsForGroup(state.modalGroupKey);
-  if (!group) return "";
-
-  return `
-    <div class="modal-backdrop" data-action="close-modal">
-      <div class="modal-sheet" data-modal-sheet="true">
-        <div class="modal-header">
-          <div>
-            <div class="modal-title">${escapeHtml(group.name)}</div>
-            <div class="modal-subtitle">共 ${group.batches.length} 条同名记录，按最早过期在前排序</div>
-          </div>
-          <button class="icon-button" data-action="close-modal" aria-label="关闭">✕</button>
-        </div>
-        <div class="modal-content">
-          ${group.batches.map(renderRecordItem).join("")}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderRecordItem(batch) {
-  return `
-    <article class="record-item ${batch.status}">
-      <div class="record-top">
-        <div class="record-title">生产于 ${formatDisplayDate(batch.productionDate)}</div>
-        <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
-      </div>
-      <div class="record-grid">
-        <div class="record-cell">
-          <div class="record-label">生产日期</div>
-          <div class="record-value">${formatDisplayDate(batch.productionDate)}</div>
-        </div>
-        <div class="record-cell">
-          <div class="record-label">下架日期</div>
-          <div class="record-value">${formatDisplayDate(batch.removalDate)}</div>
-        </div>
-        <div class="record-cell">
-          <div class="record-label">过期日期</div>
-          <div class="record-value">${formatDisplayDate(batch.expiryDate)}</div>
-        </div>
-      </div>
-    </article>
   `;
 }
 
@@ -722,7 +595,7 @@ function refreshCalculatorPreview() {
 function refreshManageList() {
   const node = app.querySelector("[data-manage-list]");
   if (!node) return;
-  node.innerHTML = renderManageList(getVisibleGroups());
+  node.innerHTML = renderManageList(getVisibleBatches());
   bindSwipeGestures();
 }
 
@@ -773,11 +646,6 @@ function bindSwipeGestures() {
 }
 
 app.addEventListener("click", (event) => {
-  const modalSheet = event.target.closest("[data-modal-sheet]");
-  if (modalSheet && !event.target.closest("button")) {
-    return;
-  }
-
   const target = event.target.closest("button, [data-action]");
   if (!target) {
     if (state.swipedGroupKey) {
@@ -845,7 +713,7 @@ app.addEventListener("click", (event) => {
 });
 
 function handleAction(action, target) {
-  if (action !== "open-group" && action !== "archive-group" && action !== "delete-group") {
+  if (action !== "archive-record" && action !== "delete-record") {
     closeSwipeActions();
   }
 
@@ -881,28 +749,15 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "open-group") {
-    state.modalGroupKey = target.dataset.key;
-    closeSwipeActions();
-    render();
-    return;
-  }
-
-  if (action === "close-modal") {
-    state.modalGroupKey = null;
-    render();
-    return;
-  }
-
   if (action === "submit-form") {
     submitForm();
     return;
   }
 
-  if (action === "archive-group") {
-    const key = target.dataset.key;
+  if (action === "archive-record") {
+    const id = target.dataset.id;
     state.batches = state.batches.map((batch) => (
-      (batch.normalizedName || normalizeName(batch.name)) === key
+      batch.id === id
         ? { ...batch, archived: true, archivedAt: new Date().toISOString() }
         : batch
     ));
@@ -912,37 +767,16 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "delete-group") {
-    const key = target.dataset.key;
-    if (!window.confirm("确定删除这组同名商品记录吗？删除后无法恢复。")) return;
-    state.batches = state.batches.filter((batch) => (batch.normalizedName || normalizeName(batch.name)) !== key);
+  if (action === "delete-record") {
+    const id = target.dataset.id;
+    if (!window.confirm("确定删除这条商品记录吗？删除后无法恢复。")) return;
+    state.batches = state.batches.filter((batch) => batch.id !== id);
     saveBatches();
     closeSwipeActions();
     render();
     return;
   }
 
-  if (action === "archive-batch") {
-    state.batches = state.batches.map((batch) => (
-      batch.id === target.dataset.id ? { ...batch, archived: true, archivedAt: new Date().toISOString() } : batch
-    ));
-    saveBatches();
-    render();
-    return;
-  }
-
-  if (action === "restore-batch") {
-    state.batches = state.batches.map((batch) => (
-      batch.id === target.dataset.id ? { ...batch, archived: false, archivedAt: null } : batch
-    ));
-    saveBatches();
-    render();
-    return;
-  }
-
-  if (action === "delete-batch") {
-    deleteBatch(target.dataset.id);
-  }
 }
 
 function submitForm() {
@@ -976,13 +810,6 @@ function submitForm() {
   state.formError = "";
   state.filter = "all";
   state.page = "manage";
-  render();
-}
-
-function deleteBatch(batchId) {
-  if (!window.confirm("确定删除这个批次吗？删除后无法恢复。")) return;
-  state.batches = state.batches.filter((batch) => batch.id !== batchId);
-  saveBatches();
   render();
 }
 
