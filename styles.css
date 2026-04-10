@@ -170,6 +170,33 @@ button {
   width: 13px;
 }
 
+.toolbar-scan-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+}
+
+.toolbar-scan-icon::before,
+.toolbar-scan-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+}
+
+.toolbar-scan-icon::before {
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+}
+
+.toolbar-scan-icon::after {
+  top: 6px;
+  bottom: 6px;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
+
 .toolbar-back-icon {
   position: relative;
   width: 16px;
@@ -806,71 +833,8 @@ button {
   padding: 15px;
 }
 
-.scan-entry {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 20px;
-  border: 1px solid #dce6fb;
-  background:
-    radial-gradient(circle at top right, rgba(47, 107, 255, 0.08), transparent 34%),
-    linear-gradient(180deg, #fbfdff 0%, #f2f7ff 100%);
-}
-
-.scan-entry-button {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #2f6bff 0%, #3f7cff 100%);
-  box-shadow: 0 14px 26px rgba(47, 107, 255, 0.2);
-  flex-shrink: 0;
-}
-
-.scan-entry-icon {
-  width: 24px;
-  height: 18px;
-  position: relative;
-  display: inline-block;
-}
-
-.scan-entry-icon::before,
-.scan-entry-icon::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 4px;
-}
-
-.scan-entry-icon::before {
-  border-left: 2px solid #ffffff;
-  border-right: 2px solid #ffffff;
-}
-
-.scan-entry-icon::after {
-  top: 7px;
-  bottom: 7px;
-  border-top: 2px solid #ffffff;
-  border-bottom: 2px solid #ffffff;
-}
-
-.scan-entry-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #243149;
-}
-
-.scan-entry-text {
-  margin-top: 4px;
-  color: #7b879d;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .barcode-note {
-  margin-top: 12px;
+  margin-bottom: 12px;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid #e2e9f7;

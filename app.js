@@ -1,5 +1,6 @@
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "shelf-life-manager-v2";
+const TEMPLATE_STORAGE_KEY = "shelf-life-templates-v1";
 const ARCHIVE_RETENTION_DAYS = 30;
 
 const categories = [
@@ -23,8 +24,11 @@ const state = {
   search: "",
   swipedGroupKey: null,
   batches: loadBatches(),
+  templates: loadTemplates(),
+  scanResult: null,
   formError: "",
   form: createDefaultForm(),
+  scanner: createScannerState(),
   calculator: {
     productionDate: todayIso,
     shelfLifeValue: "",
@@ -41,6 +45,19 @@ function createDefaultForm() {
     productionDate: todayIso,
     shelfLifeValue: "",
     shelfLifeUnit: "days",
+    barcode: "",
+    scanHint: "",
+  };
+}
+
+function createScannerState() {
+  return {
+    open: false,
+    status: "idle",
+    message: "",
+    stream: null,
+    detector: null,
+    timerId: null,
   };
 }
 
@@ -121,7 +138,6 @@ function getBatchStatus({ removalDate, expiryDate, today = new Date() }) {
   const expiry = parseDateInput(expiryDate);
   if (compareDate.getTime() > expiry.getTime()) return "expired";
   if (compareDate.getTime() >= removal.getTime()) return "removeSoon";
-  if (compareDate.getTime() >= addDays(removal, -1).getTime()) return "upcomingRemove";
   return "active";
 }
 
@@ -129,7 +145,7 @@ function daysUntil(date, today = new Date()) {
   return Math.round((parseDateInput(date).getTime() - parseDateInput(today).getTime()) / DAY_IN_MS);
 }
 
-function createBatchRecord({ id, name, category, productionDate, shelfLifeValue, shelfLifeUnit }) {
+function createBatchRecord({ id, name, category, productionDate, shelfLifeValue, shelfLifeUnit, barcode }) {
   const calculated = calculateBatchDates({ productionDate, shelfLifeValue, shelfLifeUnit });
   return {
     id,
@@ -141,6 +157,7 @@ function createBatchRecord({ id, name, category, productionDate, shelfLifeValue,
     expiryDate: formatIsoDate(calculated.expiryDate),
     shelfLifeValue: Number(shelfLifeValue),
     shelfLifeUnit,
+    barcode: normalizeBarcode(barcode),
     archived: false,
     archivedAt: null,
     createdAt: new Date().toISOString(),
@@ -160,7 +177,7 @@ function enrichBatch(batch, today = new Date()) {
 }
 
 function sortBatchRecords(records, sortBy = "urgency", today = new Date()) {
-  const statusRank = { expired: 0, removeSoon: 1, upcomingRemove: 2, active: 3, archived: 4 };
+  const statusRank = { expired: 0, removeSoon: 1, active: 2, archived: 3 };
   return [...records].sort((left, right) => {
     if (sortBy === "name") return compareName(left.name, right.name);
     if (sortBy === "createdAt") {
@@ -187,8 +204,24 @@ function loadBatches() {
   }
 }
 
+function loadTemplates() {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => item && item.barcode && item.name && item.category && item.shelfLifeValue && item.shelfLifeUnit);
+  } catch {
+    return [];
+  }
+}
+
 function saveBatches() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
+}
+
+function saveTemplates() {
+  localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(state.templates));
 }
 
 function purgeExpiredArchivedRecords() {
@@ -209,6 +242,86 @@ function purgeExpiredArchivedRecords() {
 
 function createId() {
   return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeBarcode(value) {
+  return String(value || "").replace(/\s+/g, "").trim();
+}
+
+function findTemplateByBarcode(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  return state.templates.find((item) => item.barcode === normalized) || null;
+}
+
+function upsertTemplate(template) {
+  const barcode = normalizeBarcode(template.barcode);
+  if (!barcode) return;
+  const nextTemplate = {
+    barcode,
+    name: String(template.name || "").trim(),
+    category: template.category,
+    shelfLifeValue: Number(template.shelfLifeValue),
+    shelfLifeUnit: template.shelfLifeUnit,
+    updatedAt: new Date().toISOString(),
+  };
+  const existingIndex = state.templates.findIndex((item) => item.barcode === barcode);
+  if (existingIndex >= 0) {
+    state.templates.splice(existingIndex, 1, nextTemplate);
+  } else {
+    state.templates.unshift(nextTemplate);
+  }
+  saveTemplates();
+}
+
+function resetScanner({ keepMessage = false } = {}) {
+  if (state.scanner.timerId) {
+    clearTimeout(state.scanner.timerId);
+  }
+  if (state.scanner.stream) {
+    state.scanner.stream.getTracks().forEach((track) => track.stop());
+  }
+  state.scanner = {
+    ...createScannerState(),
+    message: keepMessage ? state.scanner.message : "",
+  };
+}
+
+function clearScanResult() {
+  state.scanResult = null;
+}
+
+function applyTemplateToForm(template, barcode) {
+  state.form = {
+    ...state.form,
+    barcode,
+    name: template.name,
+    category: template.category,
+    shelfLifeValue: String(template.shelfLifeValue),
+    shelfLifeUnit: template.shelfLifeUnit,
+    scanHint: `已识别条码 ${barcode}，已自动带出商品模板。`,
+  };
+}
+
+function applyBarcodeResult(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  if (!normalized) return;
+  state.scanResult = {
+    barcode: normalized,
+    template: findTemplateByBarcode(normalized),
+    records: getRecordsByBarcode(normalized),
+    view: "intent",
+  };
+  state.formError = "";
+  resetScanner();
+  render();
+}
+
+function getRecordsByBarcode(barcode) {
+  const normalized = normalizeBarcode(barcode);
+  return state.batches
+    .filter((batch) => normalizeBarcode(batch.barcode) === normalized)
+    .map((batch) => enrichBatch(batch, new Date()))
+    .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate) || String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
 }
 
 function getCategoryMeta(categoryId) {
@@ -277,6 +390,8 @@ function render() {
       ${pageContent}
       ${state.page === "manage" ? renderBottomNav() : ""}
       ${state.page === "manage" ? '<div class="fab-layer"><button class="fab" data-action="go-add">+</button></div>' : ""}
+      ${state.page === "add" && state.scanner.open ? renderScannerSheet() : ""}
+      ${state.scanResult ? renderScanResultSheet() : ""}
     </div>
   `;
   bindInputs();
@@ -306,6 +421,9 @@ function renderManagePage(counts, records) {
           <div class="subtitle">共 ${counts.groupCount} 件商品</div>
         </div>
         <div class="topbar-actions">
+          <button class="icon-button" data-action="open-scanner" aria-label="扫描条形码">
+            <span class="toolbar-scan-icon" aria-hidden="true"></span>
+          </button>
           <button class="icon-button ${state.searchVisible ? "active" : ""}" data-action="toggle-search" aria-label="搜索">
             <span class="toolbar-search-icon" aria-hidden="true"></span>
           </button>
@@ -389,6 +507,13 @@ function renderAddPage() {
 
     <main class="content">
       <section class="panel">
+        ${state.form.barcode ? `
+          <div class="barcode-note">
+            <div class="barcode-note-label">已识别条码</div>
+            <div class="barcode-note-value">${escapeHtml(state.form.barcode)}</div>
+          </div>
+        ` : ""}
+        ${state.form.scanHint ? `<div class="helper-text" style="margin-top:12px;">${escapeHtml(state.form.scanHint)}</div>` : ""}
         <div class="field">
           <label class="field-label" for="item-name">商品名称</label>
           <input id="item-name" class="text-field" type="text" maxlength="30" placeholder="例如：牛奶、面包、感冒药" value="${escapeHtml(state.form.name)}" data-form-input="name" />
@@ -429,6 +554,112 @@ function renderAddPage() {
         </div>
       </section>
     </main>
+  `;
+}
+
+function renderScannerSheet() {
+  return `
+    <div class="scanner-backdrop" data-action="close-scanner">
+      <div class="scanner-sheet" data-scanner-sheet="true">
+        <div class="scanner-sheet-head">
+          <div>
+            <div class="scanner-title">扫描条形码</div>
+            <div class="scanner-subtitle">优先识别商品条形码，查到模板后自动填充。</div>
+          </div>
+          <button class="icon-button" data-action="close-scanner" aria-label="关闭">✕</button>
+        </div>
+        <div class="scanner-preview">
+          <video class="scanner-video" data-scanner-video autoplay playsinline muted></video>
+          <div class="scanner-frame"></div>
+        </div>
+        <div class="scanner-status">${escapeHtml(state.scanner.message || "请把条形码对准扫描框")}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderScanResultSheet() {
+  if (!state.scanResult) return "";
+  if (state.scanResult.view === "records") return renderBarcodeRecordsSheet();
+  return renderScanIntentSheet();
+}
+
+function renderScanIntentSheet() {
+  const { barcode, template, records } = state.scanResult;
+  return `
+    <div class="modal-backdrop" data-action="close-scan-result">
+      <div class="modal-sheet" data-scan-result-sheet="true">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">已识别条形码</div>
+            <div class="modal-subtitle">${escapeHtml(barcode)}</div>
+          </div>
+          <button class="icon-button" data-action="close-scan-result" aria-label="关闭">✕</button>
+        </div>
+        <div class="modal-content">
+          <article class="intent-card">
+            <div class="intent-title">${template ? escapeHtml(template.name) : "未找到商品模板"}</div>
+            <div class="intent-text">
+              ${template
+                ? `已找到模板：${escapeHtml(getCategoryMeta(template.category).label)} / ${template.shelfLifeValue}${template.shelfLifeUnit === "months" ? "个月" : "天"}`
+                : "这个条码还没有模板，第一次录入时需要补充商品名、分类和保质期。"}
+            </div>
+            <div class="intent-text">当前已有 ${records.length} 条这个条码的批次记录。</div>
+            <div class="intent-actions">
+              <button class="ghost-button" data-action="view-barcode-records">查看所有批次</button>
+              <button class="primary-button" data-action="scan-add-batch">新增批次</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBarcodeRecordsSheet() {
+  const { barcode, records, template } = state.scanResult;
+  return `
+    <div class="modal-backdrop" data-action="close-scan-result">
+      <div class="modal-sheet" data-scan-result-sheet="true">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">${template ? escapeHtml(template.name) : "条码批次记录"}</div>
+            <div class="modal-subtitle">${escapeHtml(barcode)}${records.length ? ` · 共 ${records.length} 条记录` : " · 暂无历史记录"}</div>
+          </div>
+          <button class="icon-button" data-action="close-scan-result" aria-label="关闭">✕</button>
+        </div>
+        <div class="modal-content">
+          ${records.length
+            ? records.map(renderBarcodeRecordItem).join("")
+            : '<article class="intent-card"><div class="intent-title">还没有这个条码的批次记录</div><div class="intent-text">可以直接新增批次，保存后下次就能从这里看到历史记录。</div><div class="intent-actions"><button class="primary-button" data-action="scan-add-batch">新增批次</button></div></article>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBarcodeRecordItem(batch) {
+  return `
+    <article class="record-item ${batch.status}">
+      <div class="record-top">
+        <div class="record-title">生产于 ${formatDisplayDate(batch.productionDate)}</div>
+        <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
+      </div>
+      <div class="record-grid">
+        <div class="record-cell">
+          <div class="record-label">生产日期</div>
+          <div class="record-value">${formatDisplayDate(batch.productionDate)}</div>
+        </div>
+        <div class="record-cell">
+          <div class="record-label">下架日期</div>
+          <div class="record-value">${formatDisplayDate(batch.removalDate)}</div>
+        </div>
+        <div class="record-cell">
+          <div class="record-label">过期日期</div>
+          <div class="record-value">${formatDisplayDate(batch.expiryDate)}</div>
+        </div>
+      </div>
+    </article>
   `;
 }
 
@@ -499,6 +730,7 @@ function renderProductCard(batch) {
           <div class="product-head-main">
             <div class="product-title">${escapeHtml(batch.name)}</div>
             <div class="product-meta">添加于 ${formatCreatedDate(batch.createdAt) || formatDisplayDate(batch.productionDate)}</div>
+            ${batch.barcode ? `<div class="product-barcode">条码 ${escapeHtml(batch.barcode)}</div>` : ""}
           </div>
           <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
         </div>
@@ -584,6 +816,7 @@ function bindInputs() {
   });
 
   bindSwipeGestures();
+  bindScanner();
 }
 
 function refreshFormPreview() {
@@ -601,6 +834,87 @@ function refreshManageList() {
   if (!node) return;
   node.innerHTML = renderManageList(getVisibleBatches());
   bindSwipeGestures();
+}
+
+function bindScanner() {
+  if (!state.scanner.open) return;
+  if (state.scanner.status === "unsupported" || state.scanner.status === "error") return;
+  const video = app.querySelector("[data-scanner-video]");
+  if (!video) return;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    state.scanner.status = "unsupported";
+    state.scanner.message = "当前浏览器不支持摄像头扫码。";
+    render();
+    return;
+  }
+
+  if (!("BarcodeDetector" in window)) {
+    state.scanner.status = "unsupported";
+    state.scanner.message = "当前浏览器不支持原生条形码识别，建议使用安卓 Chrome。";
+    render();
+    return;
+  }
+
+  if (state.scanner.stream) {
+    attachScannerStream(video);
+    queueScan(video);
+    return;
+  }
+
+  startScanner(video);
+}
+
+async function startScanner(video) {
+  try {
+    state.scanner.status = "opening";
+    state.scanner.message = "正在打开摄像头...";
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+      },
+      audio: false,
+    });
+    state.scanner.stream = stream;
+    state.scanner.detector = new window.BarcodeDetector({
+      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
+    });
+    state.scanner.status = "scanning";
+    state.scanner.message = "请把条形码放进扫描框";
+    attachScannerStream(video);
+    queueScan(video);
+  } catch (error) {
+    state.scanner.status = "error";
+    state.scanner.message = "无法打开摄像头，请检查浏览器权限。";
+    render();
+  }
+}
+
+function attachScannerStream(video) {
+  if (!video || !state.scanner.stream) return;
+  if (video.srcObject !== state.scanner.stream) {
+    video.srcObject = state.scanner.stream;
+  }
+  video.play().catch(() => {});
+}
+
+function queueScan(video) {
+  if (!state.scanner.open || state.scanner.timerId || !state.scanner.detector) return;
+  state.scanner.timerId = window.setTimeout(async () => {
+    state.scanner.timerId = null;
+    if (!state.scanner.open) return;
+    try {
+      const barcodes = await state.scanner.detector.detect(video);
+      const detected = barcodes.find((item) => normalizeBarcode(item.rawValue));
+      if (detected) {
+        applyBarcodeResult(detected.rawValue);
+        return;
+      }
+    } catch {
+      state.scanner.message = "识别中，请保持条形码稳定";
+    }
+    queueScan(video);
+  }, 220);
 }
 
 function closeSwipeActions() {
@@ -650,6 +964,16 @@ function bindSwipeGestures() {
 }
 
 app.addEventListener("click", (event) => {
+  const scannerSheet = event.target.closest("[data-scanner-sheet]");
+  if (scannerSheet && !event.target.closest("button")) {
+    return;
+  }
+
+  const scanResultSheet = event.target.closest("[data-scan-result-sheet]");
+  if (scanResultSheet && !event.target.closest("button")) {
+    return;
+  }
+
   const target = event.target.closest("button, [data-action]");
   if (!target) {
     if (state.swipedGroupKey) {
@@ -661,6 +985,7 @@ app.addEventListener("click", (event) => {
 
   if (target.dataset.nav) {
     closeSwipeActions();
+    resetScanner();
     state.page = target.dataset.nav;
     render();
     return;
@@ -740,6 +1065,7 @@ function handleAction(action, target) {
   }
 
   if (action === "go-add") {
+    resetScanner();
     state.page = "add";
     state.formError = "";
     render();
@@ -747,9 +1073,61 @@ function handleAction(action, target) {
   }
 
   if (action === "go-manage") {
+    resetScanner();
     state.page = "manage";
     state.formError = "";
     render();
+    return;
+  }
+
+  if (action === "open-scanner") {
+    clearScanResult();
+    state.scanner.open = true;
+    state.scanner.status = "idle";
+    state.scanner.message = "请把条形码对准扫描框";
+    render();
+    return;
+  }
+
+  if (action === "close-scanner") {
+    resetScanner();
+    render();
+    return;
+  }
+
+  if (action === "close-scan-result") {
+    clearScanResult();
+    render();
+    return;
+  }
+
+  if (action === "scan-add-batch") {
+    const { barcode, template } = state.scanResult || {};
+    if (barcode) {
+      if (template) {
+        applyTemplateToForm(template, barcode);
+      } else {
+        state.form = {
+          ...state.form,
+          barcode,
+          scanHint: `已识别条码 ${barcode}，未找到模板，请补充商品信息。保存后会自动记住这个商品。`,
+        };
+      }
+    }
+    clearScanResult();
+    render();
+    return;
+  }
+
+  if (action === "view-barcode-records") {
+    if (state.scanResult) {
+      state.scanResult = {
+        ...state.scanResult,
+        records: getRecordsByBarcode(state.scanResult.barcode),
+        view: "records",
+      };
+      render();
+    }
     return;
   }
 
@@ -784,7 +1162,7 @@ function handleAction(action, target) {
 }
 
 function submitForm() {
-  const { name, category, productionDate, shelfLifeValue, shelfLifeUnit } = state.form;
+  const { name, category, productionDate, shelfLifeValue, shelfLifeUnit, barcode } = state.form;
   if (!name.trim()) {
     state.formError = "请输入商品名称。";
     render();
@@ -807,9 +1185,20 @@ function submitForm() {
     productionDate,
     shelfLifeValue: Number(shelfLifeValue),
     shelfLifeUnit,
+    barcode,
   });
   state.batches.unshift(batch);
   saveBatches();
+  if (barcode) {
+    upsertTemplate({
+      barcode,
+      name,
+      category,
+      shelfLifeValue: Number(shelfLifeValue),
+      shelfLifeUnit,
+    });
+  }
+  resetScanner();
   state.form = createDefaultForm();
   state.formError = "";
   state.filter = "all";
@@ -820,7 +1209,6 @@ function submitForm() {
 function statusText(status) {
   if (status === "expired") return "已过期";
   if (status === "removeSoon") return "待处理";
-  if (status === "upcomingRemove") return "即将处理";
   if (status === "archived") return "已下架";
   return "正常";
 }
