@@ -1,122 +1,1445 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>物品有效期管理</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  <style>
-    * {box-sizing: border-box; font-size: 16px;}
-    body {max-width: 400px; margin: 0 auto; padding: 15px; font-family: sans-serif;}
-    .box {border: 1px solid #ccc; padding: 12px; margin: 10px 0; border-radius: 8px;}
-    button {padding: 10px; width: 100%; margin: 5px 0; background: #007bff; color: white; border: none; border-radius: 6px;}
-    input {width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 6px;}
-    #result {white-space: pre-line; margin-top: 10px; color: #333;}
-  </style>
-</head>
-
-<body>
-  <h2 style="text-align:center">📦 物品有效期管理</h2>
-
-  <div class="box">
-    <input id="username" placeholder="用户名">
-    <input id="password" type="password" placeholder="密码">
-    <button onclick="register()">注册</button>
-    <button onclick="login()">登录</button>
-  </div>
-
-  <div class="box">
-    <input type="file" id="photo" accept="image/*" capture="camera">
-    <button onclick="scan()">📷 拍照识别生产日期</button>
-
-    <input id="goods" placeholder="物品名称">
-    <input id="days" placeholder="保质期天数（例如：180）" value="180">
-    <button onclick="calc()">✅ 计算过期时间</button>
-    <button onclick="save()">💾 保存到我的账号</button>
-  </div>
-
-  <div id="result"></div>
-
-  <script>
-    let user = null;
-    let picText = "";
-    let prodDate = null;
-
-    // 拍照识别文字
-    async function scan() {
-      const file = document.getElementById("photo").files[0];
-      if (!file) return alert("请先拍照");
-      document.getElementById("result").innerText = "识别中...";
-
-      const { data: { text } } = await Tesseract.recognize(file, 'chi_sim+eng');
-      picText = text;
-      document.getElementById("result").innerText = "识别内容：\n" + text;
-      findDate(text);
-    }
-
-    // 自动找日期
-    function findDate(text) {
-      const reg = /\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{6}|\d{8}/g;
-      const match = text.match(reg);
-      if (match) {
-        prodDate = match[0];
-        show("找到日期：" + prodDate);
-      } else {
-        show("未自动识别到日期，请手动输入");
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2f6bff" />
+    <title>保质期管理</title>
+    <style>
+      :root {
+        --bg: #f4f6fb;
+        --surface: rgba(255, 255, 255, 0.92);
+        --surface-solid: #ffffff;
+        --line: #e5e9f2;
+        --line-strong: #d5ddec;
+        --text: #172033;
+        --muted: #7d8798;
+        --blue: #2f6bff;
+        --blue-soft: #edf3ff;
+        --amber: #ef8a17;
+        --amber-soft: #fff4e6;
+        --red: #d84343;
+        --red-soft: #feebeb;
+        --green: #1f8f5f;
+        --green-soft: #e7f7ef;
+        --shadow: 0 18px 40px rgba(30, 44, 80, 0.08);
+        --radius-xl: 26px;
+        --radius-lg: 20px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
       }
-    }
 
-    // 计算过期
-    function calc() {
-      if (!prodDate) return alert("先识别日期");
-      const days = parseInt(document.getElementById("days").value || 180);
-      const d = new Date(prodDate);
-      d.setDate(d.getDate() + days);
-      const exp = d.toLocaleDateString();
-      show(`生产日期：${prodDate}\n保质期：${days}天\n过期日期：${exp}`);
-    }
-
-    // 注册（演示用，真实项目接Supabase）
-    function register() {
-      const u = document.getElementById("username").value;
-      const p = document.getElementById("password").value;
-      localStorage.setItem("user_" + u, p);
-      alert("注册成功");
-    }
-
-    // 登录
-    function login() {
-      const u = document.getElementById("username").value;
-      const p = document.getElementById("password").value;
-      if (localStorage.getItem("user_" + u) === p) {
-        user = u;
-        alert("登录成功");
-      } else {
-        alert("账号或密码错误");
+      * {
+        box-sizing: border-box;
       }
-    }
 
-    // 保存
-    function save() {
-      if (!user) return alert("请先登录");
-      const item = {
-        name: document.getElementById("goods").value,
-        prod: prodDate,
-        expire: new Date(new Date(prodDate).getTime() + parseInt(document.getElementById("days").value)*86400000).toLocaleDateString()
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top, #ffffff 0%, #f7f9ff 32%, #eef2f9 100%);
+        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        color: var(--text);
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        padding: 20px 12px;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .phone-shell {
+        width: min(100%, 420px);
+        min-height: calc(100vh - 40px);
+        background: linear-gradient(180deg, #fdfefe 0%, #f5f7fb 100%);
+        border: 1px solid rgba(223, 229, 239, 0.95);
+        border-radius: 32px;
+        box-shadow: 0 24px 60px rgba(40, 54, 86, 0.12);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .topbar {
+        padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 14px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+        position: sticky;
+        top: 0;
+        z-index: 8;
+      }
+
+      .topbar-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .title-wrap h1 {
+        margin: 0;
+        font-size: 31px;
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+      }
+
+      .subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .icon-button {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid var(--line);
+        box-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
+      }
+
+      .search-bar {
+        margin-top: 14px;
+        display: none;
+      }
+
+      .search-bar.visible {
+        display: block;
+      }
+
+      .search-input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: var(--surface-solid);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      .tabs {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .tab {
+        padding: 12px 10px;
+        border-radius: 999px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid transparent;
+        font-weight: 600;
+      }
+
+      .tab.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+        border-color: rgba(47, 107, 255, 0.18);
+      }
+
+      .toolbar {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .chip-toggle {
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        padding: 9px 14px;
+        font-size: 13px;
+      }
+
+      .chip-toggle.active {
+        color: var(--green);
+        background: var(--green-soft);
+        border-color: rgba(31, 143, 95, 0.18);
+      }
+
+      .content {
+        padding: 12px 16px calc(104px + env(safe-area-inset-bottom, 0px));
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .group-card,
+      .calculator-card,
+      .empty-state {
+        background: var(--surface);
+        border: 1px solid rgba(224, 230, 240, 0.95);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+      }
+
+      .group-card {
+        overflow: hidden;
+      }
+
+      .group-header {
+        padding: 18px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .group-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .group-name {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .group-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .meta-chip,
+      .status-badge {
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .meta-chip {
+        color: var(--muted);
+        background: #f6f8fc;
+        border: 1px solid var(--line);
+      }
+
+      .status-badge.active {
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .status-badge.removeSoon {
+        color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .status-badge.expired {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .status-badge.archived {
+        color: #6f7a8b;
+        background: #edf1f6;
+      }
+
+      .group-summary {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .summary-box {
+        padding: 12px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+        border: 1px solid var(--line);
+      }
+
+      .summary-label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .summary-value {
+        margin-top: 8px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .summary-value.small {
+        font-size: 13px;
+      }
+
+      .expand-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--blue);
+        font-weight: 700;
+      }
+
+      .batch-list {
+        border-top: 1px solid rgba(224, 230, 240, 0.95);
+        padding: 0 18px 18px;
+        display: none;
+      }
+
+      .group-card.expanded .batch-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .batch-item {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 20px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+      }
+
+      .batch-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .batch-title {
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .batch-grid {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .date-cell {
+        padding: 10px;
+        border-radius: 16px;
+        background: #f8faff;
+        border: 1px solid #edf2fb;
+      }
+
+      .date-label {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .date-value {
+        margin-top: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+
+      .batch-footer {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .action-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .text-button,
+      .primary-button,
+      .ghost-button {
+        padding: 11px 14px;
+        border-radius: 14px;
+        font-weight: 700;
+      }
+
+      .text-button {
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .ghost-button {
+        color: var(--text);
+        background: #f4f6fb;
+        border: 1px solid var(--line);
+      }
+
+      .primary-button {
+        color: #ffffff;
+        background: linear-gradient(135deg, #2f6bff 0%, #3f7cff 100%);
+        box-shadow: 0 12px 24px rgba(47, 107, 255, 0.24);
+      }
+
+      .empty-state {
+        min-height: 52vh;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 28px;
+      }
+
+      .empty-icon {
+        font-size: 58px;
+      }
+
+      .empty-title {
+        margin-top: 12px;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .empty-text {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .calculator-card {
+        padding: 18px;
+      }
+
+      .section-title {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .section-subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .field {
+        margin-top: 16px;
+      }
+
+      .field-label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .text-field {
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        padding: 15px 16px;
+        color: var(--text);
+      }
+
+      .segment {
+        display: inline-grid;
+        grid-template-columns: repeat(2, 1fr);
+        border-radius: 16px;
+        background: #f5f7fb;
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+
+      .segment button {
+        min-width: 56px;
+        padding: 12px 16px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .segment button.active {
+        background: var(--blue);
+        color: #ffffff;
+      }
+
+      .quick-grid {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .quick-chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .quick-chip.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+        border-color: rgba(47, 107, 255, 0.18);
+      }
+
+      .result-panel {
+        margin-top: 18px;
+        padding: 18px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #f6f9ff 0%, #eef4ff 100%);
+        border: 1px solid rgba(47, 107, 255, 0.14);
+        display: grid;
+        gap: 12px;
+      }
+
+      .result-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .result-box {
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+      }
+
+      .result-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .result-value {
+        margin-top: 8px;
+        font-size: 17px;
+        font-weight: 700;
+        line-height: 1.5;
+      }
+
+      .fab {
+        position: absolute;
+        right: 20px;
+        bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2f6bff 0%, #4b85ff 100%);
+        color: #ffffff;
+        box-shadow: 0 18px 34px rgba(47, 107, 255, 0.32);
+        font-size: 34px;
+        display: grid;
+        place-items: center;
+        z-index: 5;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 10px 18px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: rgba(255, 255, 255, 0.96);
+        border-top: 1px solid rgba(224, 230, 240, 0.95);
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .nav-item {
+        padding: 10px 12px;
+        border-radius: 18px;
+        color: var(--muted);
+        display: grid;
+        justify-items: center;
+        gap: 5px;
+        font-weight: 700;
+      }
+
+      .nav-item.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .modal {
+        position: absolute;
+        inset: 0;
+        background: rgba(18, 24, 36, 0.28);
+        display: none;
+        align-items: flex-end;
+        z-index: 10;
+        padding-top: 40px;
+      }
+
+      .modal.visible {
+        display: flex;
+      }
+
+      .sheet {
+        width: 100%;
+        max-height: 94%;
+        overflow: auto;
+        background: #ffffff;
+        border-radius: 28px 28px 0 0;
+        padding: 18px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+      }
+
+      .sheet-handle {
+        width: 48px;
+        height: 5px;
+        border-radius: 999px;
+        background: #d7deea;
+        margin: 0 auto 18px;
+      }
+
+      .sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .sheet-title {
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .category-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .category-chip {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: #fbfcfe;
+        padding: 12px 8px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .category-chip.active {
+        color: var(--blue);
+        background: var(--blue-soft);
+        border-color: rgba(47, 107, 255, 0.22);
+      }
+
+      .category-icon {
+        display: block;
+        font-size: 22px;
+        margin-bottom: 6px;
+      }
+
+      .sheet-actions {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 12px;
+      }
+
+      .inline-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .helper-text {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .error {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        color: var(--red);
+        background: var(--red-soft);
+      }
+
+      @media (max-width: 420px) {
+        body {
+          padding: 0;
+        }
+
+        .phone-shell {
+          width: 100%;
+          min-height: 100vh;
+          border-radius: 0;
+          border: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone-shell">
+      <div id="app"></div>
+    </div>
+
+    <script type="module">
+      import {
+        calculateBatchDates,
+        createBatchRecord,
+        daysUntil,
+        formatDisplayDate,
+        formatIsoDate,
+        getBatchStatus,
+        groupProductsByName,
+      } from './app-logic.mjs';
+
+      const STORAGE_KEY = 'shelf-life-manager-v1';
+      const todayIso = formatIsoDate(new Date());
+      const quickValues = [3, 7, 10, 15, 30, 60, 90];
+      const categories = [
+        { id: 'dairy', label: '乳制品', icon: '🥛' },
+        { id: 'meat', label: '肉类', icon: '🥩' },
+        { id: 'snack', label: '零食', icon: '🍪' },
+        { id: 'drink', label: '饮料', icon: '🥤' },
+        { id: 'grain', label: '粮食', icon: '🍚' },
+        { id: 'medicine', label: '药品', icon: '💊' },
+        { id: 'cosmetic', label: '化妆品', icon: '💄' },
+        { id: 'other', label: '其他', icon: '📦' },
+      ];
+
+      const state = {
+        view: 'manage',
+        searchVisible: false,
+        search: '',
+        filter: 'all',
+        showArchived: false,
+        expanded: new Set(),
+        batches: loadBatches(),
+        modalOpen: false,
+        formError: '',
+        form: createDefaultForm(),
+        calculator: {
+          productionDate: todayIso,
+          shelfLifeValue: '',
+          shelfLifeUnit: 'days',
+        },
       };
-      const list = JSON.parse(localStorage.getItem("list_" + user) || "[]");
-      list.push(item);
-      localStorage.setItem("list_" + user, JSON.stringify(list));
-      alert("已保存：\n" + item.name + "\n过期：" + item.expire);
-    }
 
-    function show(msg) {
-      document.getElementById("result").innerText = msg;
-    }
-  </script>
-</body>
+      const app = document.querySelector('#app');
+
+      function createDefaultForm() {
+        return {
+          name: '',
+          category: 'other',
+          productionDate: todayIso,
+          shelfLifeValue: '',
+          shelfLifeUnit: 'days',
+        };
+      }
+
+      function loadBatches() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const data = JSON.parse(raw);
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveBatches() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
+      }
+
+      function createId() {
+        return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function getCategoryMeta(categoryId) {
+        return categories.find((category) => category.id === categoryId) || categories[categories.length - 1];
+      }
+
+      function getPreview({ productionDate, shelfLifeValue, shelfLifeUnit }) {
+        if (!productionDate || !shelfLifeValue) return null;
+
+        try {
+          return calculateBatchDates({
+            productionDate,
+            shelfLifeValue: Number(shelfLifeValue),
+            shelfLifeUnit,
+          });
+        } catch {
+          return null;
+        }
+      }
+
+      function getVisibleGroups() {
+        const grouped = groupProductsByName(state.batches, new Date());
+
+        return grouped
+          .map((group) => {
+            const visibleBatches = group.batches.filter((batch) => {
+              const matchesSearch = !state.search || batch.name.includes(state.search.trim());
+              const matchesArchived = state.showArchived ? true : !batch.archived;
+              const matchesFilter =
+                state.filter === 'all' || batch.status === state.filter;
+
+              return matchesSearch && matchesArchived && matchesFilter;
+            });
+
+            const archivedBatches = state.showArchived
+              ? group.batches.filter((batch) => batch.archived && (!state.search || batch.name.includes(state.search.trim())))
+              : [];
+
+            if (!visibleBatches.length && !archivedBatches.length) {
+              return null;
+            }
+
+            const reference = visibleBatches[0] || archivedBatches[0];
+
+            return {
+              ...group,
+              batches: visibleBatches,
+              archivedBatches,
+              referenceStatus: reference?.status || group.referenceStatus,
+            };
+          })
+          .filter(Boolean);
+      }
+
+      function getCounts() {
+        const activeBatches = state.batches.filter((batch) => !batch.archived);
+        let removeSoonCount = 0;
+        let expiredCount = 0;
+
+        for (const batch of activeBatches) {
+          const status = getBatchStatus({
+            removalDate: batch.removalDate,
+            expiryDate: batch.expiryDate,
+            today: new Date(),
+          });
+
+          if (status === 'removeSoon') removeSoonCount += 1;
+          if (status === 'expired') expiredCount += 1;
+        }
+
+        return {
+          activeBatches: activeBatches.length,
+          groupedItems: groupProductsByName(activeBatches).length,
+          removeSoonCount,
+          expiredCount,
+        };
+      }
+
+      function render() {
+        const counts = getCounts();
+        const groups = getVisibleGroups();
+        const managementEmpty = !groups.length;
+        const formPreview = getPreview(state.form);
+        const calculatorPreview = getPreview(state.calculator);
+
+        app.innerHTML = `
+          <header class="topbar">
+            <div class="topbar-row">
+              <div class="title-wrap">
+                <h1>${state.view === 'manage' ? '保质期管理' : '保质期计算器'}</h1>
+                <div class="subtitle">
+                  ${
+                    state.view === 'manage'
+                      ? `共 ${counts.groupedItems} 种商品，${counts.activeBatches} 个在管批次`
+                      : '输入生产日期和保质期，立即得到下架日和过期日'
+                  }
+                </div>
+              </div>
+              ${
+                state.view === 'manage'
+                  ? `<button class="icon-button" data-action="toggle-search" aria-label="搜索">🔍</button>`
+                  : `<button class="icon-button" data-action="copy-calculator" aria-label="使用计算结果">✓</button>`
+              }
+            </div>
+
+            ${
+              state.view === 'manage'
+                ? `
+                  <div class="search-bar ${state.searchVisible ? 'visible' : ''}">
+                    <input
+                      class="search-input"
+                      type="search"
+                      placeholder="搜索商品名"
+                      value="${escapeHtml(state.search)}"
+                      data-input="search"
+                    />
+                  </div>
+                  <div class="tabs">
+                    ${renderTab('all', '全部')}
+                    ${renderTab('removeSoon', `即将下架 ${counts.removeSoonCount ? `· ${counts.removeSoonCount}` : ''}`)}
+                    ${renderTab('expired', `已过期 ${counts.expiredCount ? `· ${counts.expiredCount}` : ''}`)}
+                  </div>
+                  <div class="toolbar">
+                    <button class="chip-toggle ${state.showArchived ? 'active' : ''}" data-action="toggle-archived">
+                      ${state.showArchived ? '已显示已下架批次' : '查看已下架批次'}
+                    </button>
+                    <div class="hint">生产日算第 1 天，下架日 = 过期日前 2 天</div>
+                  </div>
+                `
+                : ''
+            }
+          </header>
+
+          <main class="content">
+            ${
+              state.view === 'manage'
+                ? managementEmpty
+                  ? renderEmptyState()
+                  : `<div class="stack">${groups.map(renderGroupCard).join('')}</div>`
+                : renderCalculator(calculatorPreview)
+            }
+          </main>
+
+          ${
+            state.view === 'manage'
+              ? `<button class="fab" data-action="open-modal" aria-label="新增商品">+</button>`
+              : ''
+          }
+
+          <nav class="bottom-nav">
+            <button class="nav-item ${state.view === 'manage' ? 'active' : ''}" data-nav="manage">
+              <span>📋</span>
+              <span>管理</span>
+            </button>
+            <button class="nav-item ${state.view === 'calculator' ? 'active' : ''}" data-nav="calculator">
+              <span>🧮</span>
+              <span>计算器</span>
+            </button>
+          </nav>
+
+          <div class="modal ${state.modalOpen ? 'visible' : ''}" data-overlay="modal">
+            <div class="sheet" role="dialog" aria-modal="true" aria-label="添加商品">
+              <div class="sheet-handle"></div>
+              <div class="sheet-header">
+                <div class="sheet-title">添加商品</div>
+                <button class="icon-button" data-action="close-modal" aria-label="关闭">✕</button>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="item-name">商品名称</label>
+                <input
+                  id="item-name"
+                  class="text-field"
+                  type="text"
+                  maxlength="30"
+                  placeholder="例如：牛奶、面包、感冒药"
+                  value="${escapeHtml(state.form.name)}"
+                  data-form-input="name"
+                />
+              </div>
+
+              <div class="field">
+                <div class="field-label">分类</div>
+                <div class="category-grid">
+                  ${categories.map(renderCategoryChip).join('')}
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label" for="production-date">生产日期</label>
+                <input
+                  id="production-date"
+                  class="text-field"
+                  type="date"
+                  value="${state.form.productionDate}"
+                  data-form-input="productionDate"
+                />
+              </div>
+
+              <div class="field">
+                <div class="field-label">保质期</div>
+                <div class="inline-row">
+                  <input
+                    class="text-field"
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    placeholder="输入数值"
+                    value="${escapeHtml(state.form.shelfLifeValue)}"
+                    data-form-input="shelfLifeValue"
+                  />
+                  <div class="segment">
+                    <button class="${state.form.shelfLifeUnit === 'days' ? 'active' : ''}" data-form-unit="days">天</button>
+                    <button class="${state.form.shelfLifeUnit === 'months' ? 'active' : ''}" data-form-unit="months">月</button>
+                  </div>
+                </div>
+                <div class="quick-grid">
+                  ${quickValues.map((value) => renderQuickChip(value, state.form.shelfLifeValue)).join('')}
+                </div>
+              </div>
+
+              <div class="field">
+                <div class="field-label">自动计算结果</div>
+                ${
+                  formPreview
+                    ? `
+                      <div class="result-grid">
+                        <div class="result-box">
+                          <div class="result-label">下架日</div>
+                          <div class="result-value">${formatDisplayDate(formPreview.removalDate)}</div>
+                        </div>
+                        <div class="result-box">
+                          <div class="result-label">过期日</div>
+                          <div class="result-value">${formatDisplayDate(formPreview.expiryDate)}</div>
+                        </div>
+                      </div>
+                    `
+                    : `<div class="helper-text">输入生产日期和保质期后，系统会自动按“生产日算第 1 天”的规则计算。</div>`
+                }
+              </div>
+
+              ${state.formError ? `<div class="error">${escapeHtml(state.formError)}</div>` : ''}
+
+              <div class="sheet-actions">
+                <button class="ghost-button" data-action="close-modal">取消</button>
+                <button class="primary-button" data-action="submit-form">添加商品</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        bindInputs();
+      }
+
+      function renderTab(value, label) {
+        return `<button class="tab ${state.filter === value ? 'active' : ''}" data-filter="${value}">${label}</button>`;
+      }
+
+      function renderQuickChip(value, selectedValue) {
+        const active = Number(selectedValue) === value;
+        return `<button class="quick-chip ${active ? 'active' : ''}" data-form-quick="${value}">${value}${state.form.shelfLifeUnit === 'months' ? '月' : '天'}</button>`;
+      }
+
+      function renderCategoryChip(category) {
+        return `
+          <button class="category-chip ${state.form.category === category.id ? 'active' : ''}" data-category="${category.id}">
+            <span class="category-icon">${category.icon}</span>
+            <span>${category.label}</span>
+          </button>
+        `;
+      }
+
+      function renderEmptyState() {
+        return `
+          <section class="empty-state">
+            <div>
+              <div class="empty-icon">📦</div>
+              <div class="empty-title">还没有符合条件的商品</div>
+              <div class="empty-text">
+                ${
+                  state.filter === 'all'
+                    ? '点击右下角按钮开始记录商品批次。'
+                    : '当前筛选下没有商品，试试切换筛选或查看已下架批次。'
+                }
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function renderCalculator(preview) {
+        return `
+          <section class="calculator-card">
+            <div class="section-title">快速计算</div>
+            <div class="section-subtitle">支持按天或按月计算，规则与商品列表一致。</div>
+
+            <div class="field">
+              <label class="field-label" for="calc-production-date">生产日期</label>
+              <input
+                id="calc-production-date"
+                class="text-field"
+                type="date"
+                value="${state.calculator.productionDate}"
+                data-calc-input="productionDate"
+              />
+            </div>
+
+            <div class="field">
+              <div class="field-label">保质期</div>
+              <div class="inline-row">
+                <input
+                  class="text-field"
+                  type="number"
+                  min="1"
+                  inputmode="numeric"
+                  placeholder="输入数值"
+                  value="${escapeHtml(state.calculator.shelfLifeValue)}"
+                  data-calc-input="shelfLifeValue"
+                />
+                <div class="segment">
+                  <button class="${state.calculator.shelfLifeUnit === 'days' ? 'active' : ''}" data-calc-unit="days">天</button>
+                  <button class="${state.calculator.shelfLifeUnit === 'months' ? 'active' : ''}" data-calc-unit="months">月</button>
+                </div>
+              </div>
+
+              <div class="quick-grid">
+                ${quickValues.map((value) => `
+                  <button
+                    class="quick-chip ${Number(state.calculator.shelfLifeValue) === value ? 'active' : ''}"
+                    data-calc-quick="${value}"
+                  >${value}${state.calculator.shelfLifeUnit === 'months' ? '月' : '天'}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="result-panel">
+              ${
+                preview
+                  ? `
+                    <div class="result-grid">
+                      <div class="result-box">
+                        <div class="result-label">下架日</div>
+                        <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
+                      </div>
+                      <div class="result-box">
+                        <div class="result-label">过期日</div>
+                        <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
+                      </div>
+                    </div>
+                    <div class="helper-text">
+                      说明：生产日期按第 1 天计算，所以 ${formatDisplayDate(preview.expiryDate)} 为最终过期日，
+                      ${formatDisplayDate(preview.removalDate)} 为建议下架日。
+                    </div>
+                  `
+                  : `
+                    <div style="text-align:center;">
+                      <div class="empty-icon" style="font-size:42px;">🧮</div>
+                      <div class="empty-text">请输入保质期天数或月数</div>
+                    </div>
+                  `
+              }
+            </div>
+          </section>
+        `;
+      }
+
+      function renderGroupCard(group) {
+        const category = getCategoryMeta(group.category);
+        const expanded = state.expanded.has(group.key);
+        const firstBatch = group.batches[0] || group.archivedBatches[0];
+        const expiryCount = group.batches.filter((batch) => batch.status === 'expired').length;
+        const removeSoonCount = group.batches.filter((batch) => batch.status === 'removeSoon').length;
+
+        return `
+          <section class="group-card ${expanded ? 'expanded' : ''}">
+            <div class="group-header">
+              <div class="group-top">
+                <div>
+                  <div class="group-name">${escapeHtml(group.name)}</div>
+                  <div class="group-meta">
+                    <span class="meta-chip">${category.icon} ${category.label}</span>
+                    <span class="meta-chip">${group.batches.length} 个在管批次</span>
+                    ${group.archivedBatches.length ? `<span class="meta-chip">${group.archivedBatches.length} 个已下架</span>` : ''}
+                  </div>
+                </div>
+                <span class="status-badge ${group.referenceStatus}">${statusText(group.referenceStatus)}</span>
+              </div>
+
+              <div class="group-summary">
+                <div class="summary-box">
+                  <div class="summary-label">最近下架日</div>
+                  <div class="summary-value small">${firstBatch ? formatDisplayDate(firstBatch.removalDate) : '--'}</div>
+                </div>
+                <div class="summary-box">
+                  <div class="summary-label">最近过期日</div>
+                  <div class="summary-value small">${firstBatch ? formatDisplayDate(firstBatch.expiryDate) : '--'}</div>
+                </div>
+                <div class="summary-box">
+                  <div class="summary-label">批次提醒</div>
+                  <div class="summary-value">${expiredCount ? `${expiryCount} 过期` : removeSoonCount ? `${removeSoonCount} 待下架` : '正常'}</div>
+                </div>
+              </div>
+
+              <button class="expand-row" data-action="toggle-group" data-key="${escapeHtml(group.key)}">
+                <span>${expanded ? '收起批次' : '查看批次'}</span>
+                <span>${expanded ? '▴' : '▾'}</span>
+              </button>
+            </div>
+
+            <div class="batch-list">
+              ${group.batches.map(renderBatchItem).join('')}
+              ${group.archivedBatches.map((batch) => renderBatchItem(batch, true)).join('')}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderBatchItem(batch, archived = false) {
+        const status = archived ? 'archived' : batch.status;
+        const expiryCountdown = daysUntil(batch.expiryDate);
+        return `
+          <article class="batch-item">
+            <div class="batch-head">
+              <div class="batch-title">
+                ${escapeHtml(batch.name)}
+                <span class="hint">#${escapeHtml(batch.id.slice(-4))}</span>
+              </div>
+              <span class="status-badge ${status}">${statusText(status)}</span>
+            </div>
+
+            <div class="batch-grid">
+              <div class="date-cell">
+                <div class="date-label">生产日期</div>
+                <div class="date-value">${formatDisplayDate(batch.productionDate)}</div>
+              </div>
+              <div class="date-cell">
+                <div class="date-label">下架日</div>
+                <div class="date-value">${formatDisplayDate(batch.removalDate)}</div>
+              </div>
+              <div class="date-cell">
+                <div class="date-label">过期日</div>
+                <div class="date-value">${formatDisplayDate(batch.expiryDate)}</div>
+              </div>
+            </div>
+
+            <div class="batch-footer">
+              <div class="hint">
+                保质期 ${batch.shelfLifeValue}${batch.shelfLifeUnit === 'months' ? '个月' : '天'}
+                ${archived ? '，已标记为下架' : `，距离过期 ${expiryCountdown >= 0 ? `${expiryCountdown} 天` : `已过 ${Math.abs(expiryCountdown)} 天`}`}
+              </div>
+              <div class="action-row">
+                ${
+                  archived
+                    ? `<button class="ghost-button" data-action="restore-batch" data-id="${batch.id}">恢复</button>`
+                    : `<button class="ghost-button" data-action="archive-batch" data-id="${batch.id}">下架</button>`
+                }
+                <button class="text-button" data-action="delete-batch" data-id="${batch.id}">删除</button>
+              </div>
+            </div>
+          </article>
+        `;
+      }
+
+      function statusText(status) {
+        if (status === 'expired') return '已过期';
+        if (status === 'removeSoon') return '即将下架';
+        if (status === 'archived') return '已下架';
+        return '正常';
+      }
+
+      function bindInputs() {
+        const searchInput = app.querySelector('[data-input="search"]');
+        if (searchInput) {
+          searchInput.addEventListener('input', (event) => {
+            state.search = event.target.value;
+            render();
+          });
+        }
+
+        app.querySelectorAll('[data-form-input]').forEach((input) => {
+          input.addEventListener('input', (event) => {
+            const field = event.target.dataset.formInput;
+            state.form[field] = event.target.value;
+            state.formError = '';
+            render();
+          });
+        });
+
+        app.querySelectorAll('[data-calc-input]').forEach((input) => {
+          input.addEventListener('input', (event) => {
+            const field = event.target.dataset.calcInput;
+            state.calculator[field] = event.target.value;
+            render();
+          });
+        });
+      }
+
+      app.addEventListener('click', (event) => {
+        const target = event.target.closest('button, [data-overlay]');
+        if (!target) return;
+
+        if (target.dataset.overlay === 'modal' && event.target === target) {
+          state.modalOpen = false;
+          render();
+          return;
+        }
+
+        const action = target.dataset.action;
+        if (action) {
+          handleAction(action, target);
+          return;
+        }
+
+        if (target.dataset.nav) {
+          state.view = target.dataset.nav;
+          render();
+          return;
+        }
+
+        if (target.dataset.filter) {
+          state.filter = target.dataset.filter;
+          render();
+          return;
+        }
+
+        if (target.dataset.category) {
+          state.form.category = target.dataset.category;
+          render();
+          return;
+        }
+
+        if (target.dataset.formUnit) {
+          state.form.shelfLifeUnit = target.dataset.formUnit;
+          render();
+          return;
+        }
+
+        if (target.dataset.calcUnit) {
+          state.calculator.shelfLifeUnit = target.dataset.calcUnit;
+          render();
+          return;
+        }
+
+        if (target.dataset.formQuick) {
+          state.form.shelfLifeValue = target.dataset.formQuick;
+          render();
+          return;
+        }
+
+        if (target.dataset.calcQuick) {
+          state.calculator.shelfLifeValue = target.dataset.calcQuick;
+          render();
+        }
+      });
+
+      function handleAction(action, target) {
+        if (action === 'toggle-search') {
+          state.searchVisible = !state.searchVisible;
+        }
+
+        if (action === 'toggle-archived') {
+          state.showArchived = !state.showArchived;
+        }
+
+        if (action === 'open-modal') {
+          state.modalOpen = true;
+        }
+
+        if (action === 'close-modal') {
+          state.modalOpen = false;
+          state.formError = '';
+        }
+
+        if (action === 'toggle-group') {
+          const key = target.dataset.key;
+          if (state.expanded.has(key)) state.expanded.delete(key);
+          else state.expanded.add(key);
+        }
+
+        if (action === 'submit-form') {
+          submitForm();
+          return;
+        }
+
+        if (action === 'archive-batch') {
+          updateBatch(target.dataset.id, { archived: true, archivedAt: new Date().toISOString() });
+        }
+
+        if (action === 'restore-batch') {
+          updateBatch(target.dataset.id, { archived: false, archivedAt: null });
+        }
+
+        if (action === 'delete-batch') {
+          deleteBatch(target.dataset.id);
+          return;
+        }
+
+        if (action === 'copy-calculator') {
+          if (state.calculator.productionDate && state.calculator.shelfLifeValue) {
+            state.form = {
+              ...state.form,
+              productionDate: state.calculator.productionDate,
+              shelfLifeValue: state.calculator.shelfLifeValue,
+              shelfLifeUnit: state.calculator.shelfLifeUnit,
+            };
+            state.modalOpen = true;
+            state.view = 'manage';
+          }
+        }
+
+        render();
+      }
+
+      function submitForm() {
+        const { name, category, productionDate, shelfLifeValue, shelfLifeUnit } = state.form;
+
+        if (!name.trim()) {
+          state.formError = '请输入商品名称。';
+          render();
+          return;
+        }
+
+        if (!productionDate) {
+          state.formError = '请选择生产日期。';
+          render();
+          return;
+        }
+
+        if (!Number(shelfLifeValue) || Number(shelfLifeValue) <= 0) {
+          state.formError = '请输入正确的保质期数值。';
+          render();
+          return;
+        }
+
+        const batch = createBatchRecord({
+          id: createId(),
+          name,
+          category,
+          productionDate,
+          shelfLifeValue: Number(shelfLifeValue),
+          shelfLifeUnit,
+        });
+
+        state.batches.unshift(batch);
+        saveBatches();
+        state.modalOpen = false;
+        state.formError = '';
+        state.form = createDefaultForm();
+        state.expanded.add(batch.normalizedName);
+        render();
+      }
+
+      function updateBatch(batchId, updates) {
+        state.batches = state.batches.map((batch) => (batch.id === batchId ? { ...batch, ...updates } : batch));
+        saveBatches();
+      }
+
+      function deleteBatch(batchId) {
+        const confirmed = window.confirm('确定删除这个批次吗？删除后无法恢复。');
+        if (!confirmed) return;
+
+        state.batches = state.batches.filter((batch) => batch.id !== batchId);
+        saveBatches();
+        render();
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      render();
+    </script>
+  </body>
 </html>
