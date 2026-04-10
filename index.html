@@ -1,0 +1,122 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>物品有效期管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <style>
+    * {box-sizing: border-box; font-size: 16px;}
+    body {max-width: 400px; margin: 0 auto; padding: 15px; font-family: sans-serif;}
+    .box {border: 1px solid #ccc; padding: 12px; margin: 10px 0; border-radius: 8px;}
+    button {padding: 10px; width: 100%; margin: 5px 0; background: #007bff; color: white; border: none; border-radius: 6px;}
+    input {width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 6px;}
+    #result {white-space: pre-line; margin-top: 10px; color: #333;}
+  </style>
+</head>
+
+<body>
+  <h2 style="text-align:center">📦 物品有效期管理</h2>
+
+  <div class="box">
+    <input id="username" placeholder="用户名">
+    <input id="password" type="password" placeholder="密码">
+    <button onclick="register()">注册</button>
+    <button onclick="login()">登录</button>
+  </div>
+
+  <div class="box">
+    <input type="file" id="photo" accept="image/*" capture="camera">
+    <button onclick="scan()">📷 拍照识别生产日期</button>
+
+    <input id="goods" placeholder="物品名称">
+    <input id="days" placeholder="保质期天数（例如：180）" value="180">
+    <button onclick="calc()">✅ 计算过期时间</button>
+    <button onclick="save()">💾 保存到我的账号</button>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    let user = null;
+    let picText = "";
+    let prodDate = null;
+
+    // 拍照识别文字
+    async function scan() {
+      const file = document.getElementById("photo").files[0];
+      if (!file) return alert("请先拍照");
+      document.getElementById("result").innerText = "识别中...";
+
+      const { data: { text } } = await Tesseract.recognize(file, 'chi_sim+eng');
+      picText = text;
+      document.getElementById("result").innerText = "识别内容：\n" + text;
+      findDate(text);
+    }
+
+    // 自动找日期
+    function findDate(text) {
+      const reg = /\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{6}|\d{8}/g;
+      const match = text.match(reg);
+      if (match) {
+        prodDate = match[0];
+        show("找到日期：" + prodDate);
+      } else {
+        show("未自动识别到日期，请手动输入");
+      }
+    }
+
+    // 计算过期
+    function calc() {
+      if (!prodDate) return alert("先识别日期");
+      const days = parseInt(document.getElementById("days").value || 180);
+      const d = new Date(prodDate);
+      d.setDate(d.getDate() + days);
+      const exp = d.toLocaleDateString();
+      show(`生产日期：${prodDate}\n保质期：${days}天\n过期日期：${exp}`);
+    }
+
+    // 注册（演示用，真实项目接Supabase）
+    function register() {
+      const u = document.getElementById("username").value;
+      const p = document.getElementById("password").value;
+      localStorage.setItem("user_" + u, p);
+      alert("注册成功");
+    }
+
+    // 登录
+    function login() {
+      const u = document.getElementById("username").value;
+      const p = document.getElementById("password").value;
+      if (localStorage.getItem("user_" + u) === p) {
+        user = u;
+        alert("登录成功");
+      } else {
+        alert("账号或密码错误");
+      }
+    }
+
+    // 保存
+    function save() {
+      if (!user) return alert("请先登录");
+      const item = {
+        name: document.getElementById("goods").value,
+        prod: prodDate,
+        expire: new Date(new Date(prodDate).getTime() + parseInt(document.getElementById("days").value)*86400000).toLocaleDateString()
+      };
+      const list = JSON.parse(localStorage.getItem("list_" + user) || "[]");
+      list.push(item);
+      localStorage.setItem("list_" + user, JSON.stringify(list));
+      alert("已保存：\n" + item.name + "\n过期：" + item.expire);
+    }
+
+    function show(msg) {
+      document.getElementById("result").innerText = msg;
+    }
+  </script>
+</body>
+</html>
