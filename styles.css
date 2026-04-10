@@ -178,23 +178,61 @@ button {
 }
 
 .toolbar-scan-icon::before,
-.toolbar-scan-icon::after {
+.toolbar-scan-icon::after,
+.toolbar-scan-icon span::before,
+.toolbar-scan-icon span::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: 3px;
+  width: 6px;
+  height: 6px;
+  border-color: currentColor;
 }
 
 .toolbar-scan-icon::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid currentColor;
   border-left: 2px solid currentColor;
-  border-right: 2px solid currentColor;
+  border-top-left-radius: 2px;
 }
 
 .toolbar-scan-icon::after {
-  top: 6px;
-  bottom: 6px;
+  top: 0;
+  right: 0;
   border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  border-top-right-radius: 2px;
+}
+
+.toolbar-scan-icon span::before {
+  bottom: 0;
+  left: 0;
   border-bottom: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-bottom-left-radius: 2px;
+}
+
+.toolbar-scan-icon span::after {
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-bottom-right-radius: 2px;
+}
+
+.toolbar-scan-icon span {
+  position: absolute;
+  inset: 0;
+}
+
+.toolbar-scan-icon-line {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .toolbar-back-icon {
@@ -417,7 +455,7 @@ button {
 }
 
 .product-card.swiped .product-main {
-  transform: translateX(-132px);
+  transform: translateX(-84px);
 }
 
 .product-head {
@@ -638,8 +676,8 @@ button {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: 72px 60px;
-  width: 132px;
+  grid-template-columns: 84px;
+  width: 84px;
   z-index: 1;
 }
 
@@ -651,10 +689,6 @@ button {
 
 .swipe-action.archive {
   background: linear-gradient(180deg, #f3be4f 0%, #e2a220 100%);
-}
-
-.swipe-action.delete {
-  background: linear-gradient(180deg, #ef7f7f 0%, #df5050 100%);
 }
 
 .batch-card {
@@ -1021,6 +1055,23 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-action-button {
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border: 1px solid #cfe0ff;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .modal-title {

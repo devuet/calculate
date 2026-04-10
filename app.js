@@ -57,6 +57,8 @@ function createScannerState() {
     message: "",
     stream: null,
     detector: null,
+    controls: null,
+    backend: "",
     timerId: null,
   };
 }
@@ -277,6 +279,9 @@ function resetScanner({ keepMessage = false } = {}) {
   if (state.scanner.timerId) {
     clearTimeout(state.scanner.timerId);
   }
+  if (state.scanner.controls?.stop) {
+    state.scanner.controls.stop();
+  }
   if (state.scanner.stream) {
     state.scanner.stream.getTracks().forEach((track) => track.stop());
   }
@@ -309,7 +314,7 @@ function applyBarcodeResult(barcode) {
     barcode: normalized,
     template: findTemplateByBarcode(normalized),
     records: getRecordsByBarcode(normalized),
-    view: "intent",
+    view: "records",
   };
   state.formError = "";
   resetScanner();
@@ -422,7 +427,10 @@ function renderManagePage(counts, records) {
         </div>
         <div class="topbar-actions">
           <button class="icon-button" data-action="open-scanner" aria-label="扫描条形码">
-            <span class="toolbar-scan-icon" aria-hidden="true"></span>
+            <span class="toolbar-scan-icon" aria-hidden="true">
+              <span></span>
+              <span class="toolbar-scan-icon-line"></span>
+            </span>
           </button>
           <button class="icon-button ${state.searchVisible ? "active" : ""}" data-action="toggle-search" aria-label="搜索">
             <span class="toolbar-search-icon" aria-hidden="true"></span>
@@ -580,40 +588,7 @@ function renderScannerSheet() {
 
 function renderScanResultSheet() {
   if (!state.scanResult) return "";
-  if (state.scanResult.view === "records") return renderBarcodeRecordsSheet();
-  return renderScanIntentSheet();
-}
-
-function renderScanIntentSheet() {
-  const { barcode, template, records } = state.scanResult;
-  return `
-    <div class="modal-backdrop" data-action="close-scan-result">
-      <div class="modal-sheet" data-scan-result-sheet="true">
-        <div class="modal-header">
-          <div>
-            <div class="modal-title">已识别条形码</div>
-            <div class="modal-subtitle">${escapeHtml(barcode)}</div>
-          </div>
-          <button class="icon-button" data-action="close-scan-result" aria-label="关闭">✕</button>
-        </div>
-        <div class="modal-content">
-          <article class="intent-card">
-            <div class="intent-title">${template ? escapeHtml(template.name) : "未找到商品模板"}</div>
-            <div class="intent-text">
-              ${template
-                ? `已找到模板：${escapeHtml(getCategoryMeta(template.category).label)} / ${template.shelfLifeValue}${template.shelfLifeUnit === "months" ? "个月" : "天"}`
-                : "这个条码还没有模板，第一次录入时需要补充商品名、分类和保质期。"}
-            </div>
-            <div class="intent-text">当前已有 ${records.length} 条这个条码的批次记录。</div>
-            <div class="intent-actions">
-              <button class="ghost-button" data-action="view-barcode-records">查看所有批次</button>
-              <button class="primary-button" data-action="scan-add-batch">新增批次</button>
-            </div>
-          </article>
-        </div>
-      </div>
-    </div>
-  `;
+  return renderBarcodeRecordsSheet();
 }
 
 function renderBarcodeRecordsSheet() {
@@ -626,12 +601,22 @@ function renderBarcodeRecordsSheet() {
             <div class="modal-title">${template ? escapeHtml(template.name) : "条码批次记录"}</div>
             <div class="modal-subtitle">${escapeHtml(barcode)}${records.length ? ` · 共 ${records.length} 条记录` : " · 暂无历史记录"}</div>
           </div>
-          <button class="icon-button" data-action="close-scan-result" aria-label="关闭">✕</button>
+          <div class="modal-header-actions">
+            <button class="header-action-button" data-action="scan-add-batch">新增批次</button>
+            <button class="icon-button" data-action="close-scan-result" aria-label="关闭">✕</button>
+          </div>
         </div>
         <div class="modal-content">
           ${records.length
             ? records.map(renderBarcodeRecordItem).join("")
-            : '<article class="intent-card"><div class="intent-title">还没有这个条码的批次记录</div><div class="intent-text">可以直接新增批次，保存后下次就能从这里看到历史记录。</div><div class="intent-actions"><button class="primary-button" data-action="scan-add-batch">新增批次</button></div></article>'}
+            : `<article class="intent-card">
+                <div class="intent-title">${template ? "还没有这个商品的批次记录" : "还没有这个条码的批次记录"}</div>
+                <div class="intent-text">
+                  ${template
+                    ? "已找到商品模板，可以直接点右上角新增批次，只补生产日期。"
+                    : "这个条码还没有模板，点右上角新增批次，补一次商品信息后会自动记住。"}
+                </div>
+              </article>`}
         </div>
       </div>
     </div>
@@ -723,9 +708,8 @@ function renderProductCard(batch) {
     <section class="product-card ${batch.archived ? "archived-card" : ""} ${swiped ? "swiped" : ""}" data-swipe-key="${escapeHtml(batch.id)}">
       <div class="swipe-actions">
         <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
-        <button class="swipe-action delete" data-action="delete-record" data-id="${escapeHtml(batch.id)}">删除</button>
       </div>
-      <div class="product-main">
+      <div class="product-main" data-longpress-id="${escapeHtml(batch.id)}">
         <div class="product-head">
           <div class="product-head-main">
             <div class="product-title">${escapeHtml(batch.name)}</div>
@@ -816,6 +800,7 @@ function bindInputs() {
   });
 
   bindSwipeGestures();
+  bindLongPressDelete();
   bindScanner();
 }
 
@@ -842,6 +827,16 @@ function bindScanner() {
   const video = app.querySelector("[data-scanner-video]");
   if (!video) return;
 
+  if ("BarcodeDetector" in window) {
+    bindNativeScanner(video);
+    return;
+  }
+
+  if (window.ZXingBrowser) {
+    bindZxingScanner(video);
+    return;
+  }
+
   if (!navigator.mediaDevices?.getUserMedia) {
     state.scanner.status = "unsupported";
     state.scanner.message = "当前浏览器不支持摄像头扫码。";
@@ -849,13 +844,12 @@ function bindScanner() {
     return;
   }
 
-  if (!("BarcodeDetector" in window)) {
-    state.scanner.status = "unsupported";
-    state.scanner.message = "当前浏览器不支持原生条形码识别，建议使用安卓 Chrome。";
-    render();
-    return;
-  }
+  state.scanner.status = "unsupported";
+  state.scanner.message = "当前浏览器暂不支持扫码，请稍后重试或更换浏览器。";
+  render();
+}
 
+function bindNativeScanner(video) {
   if (state.scanner.stream) {
     attachScannerStream(video);
     queueScan(video);
@@ -879,6 +873,7 @@ async function startScanner(video) {
     state.scanner.detector = new window.BarcodeDetector({
       formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
     });
+    state.scanner.backend = "native";
     state.scanner.status = "scanning";
     state.scanner.message = "请把条形码放进扫描框";
     attachScannerStream(video);
@@ -899,6 +894,7 @@ function attachScannerStream(video) {
 }
 
 function queueScan(video) {
+  if (state.scanner.backend && state.scanner.backend !== "native") return;
   if (!state.scanner.open || state.scanner.timerId || !state.scanner.detector) return;
   state.scanner.timerId = window.setTimeout(async () => {
     state.scanner.timerId = null;
@@ -915,6 +911,51 @@ function queueScan(video) {
     }
     queueScan(video);
   }, 220);
+}
+
+function bindZxingScanner(video) {
+  if (state.scanner.controls) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    state.scanner.status = "unsupported";
+    state.scanner.message = "当前浏览器不支持摄像头扫码。";
+    render();
+    return;
+  }
+
+  startZxingScanner(video);
+}
+
+async function startZxingScanner(video) {
+  try {
+    state.scanner.status = "opening";
+    state.scanner.message = "正在打开摄像头...";
+    const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
+    const controls = await reader.decodeFromConstraints(
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+        },
+      },
+      video,
+      (result, error, localControls) => {
+        if (result?.getText()) {
+          if (localControls?.stop) localControls.stop();
+          state.scanner.controls = null;
+          applyBarcodeResult(result.getText());
+        } else if (error && state.scanner.open) {
+          state.scanner.message = "识别中，请保持条形码稳定";
+        }
+      },
+    );
+    state.scanner.controls = controls;
+    state.scanner.backend = "zxing";
+    state.scanner.status = "scanning";
+    state.scanner.message = "请把条形码放进扫描框";
+  } catch {
+    state.scanner.status = "error";
+    state.scanner.message = "无法打开摄像头，请检查浏览器权限。";
+    render();
+  }
 }
 
 function closeSwipeActions() {
@@ -960,6 +1001,68 @@ function bindSwipeGestures() {
       tracking = false;
       activeKey = null;
     };
+  });
+}
+
+function bindLongPressDelete() {
+  let timerId = null;
+  let armedId = null;
+  let startX = 0;
+  let startY = 0;
+
+  const cancelLongPress = () => {
+    if (timerId) clearTimeout(timerId);
+    timerId = null;
+    armedId = null;
+  };
+
+  const armLongPress = (id) => {
+    cancelLongPress();
+    armedId = id;
+    timerId = window.setTimeout(() => {
+      timerId = null;
+      if (!armedId) return;
+      performDeleteRecord(armedId);
+      armedId = null;
+    }, 650);
+  };
+
+  app.querySelectorAll("[data-longpress-id]").forEach((card) => {
+    card.oncontextmenu = (event) => event.preventDefault();
+
+    card.addEventListener("touchstart", (event) => {
+      const touch = event.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      armLongPress(card.dataset.longpressId);
+    }, { passive: true });
+
+    card.addEventListener("touchmove", (event) => {
+      const touch = event.touches[0];
+      if (Math.abs(touch.clientX - startX) > 10 || Math.abs(touch.clientY - startY) > 10) {
+        cancelLongPress();
+      }
+    }, { passive: true });
+
+    card.addEventListener("touchend", cancelLongPress);
+    card.addEventListener("touchcancel", cancelLongPress);
+
+    card.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      startX = event.clientX;
+      startY = event.clientY;
+      armLongPress(card.dataset.longpressId);
+    });
+
+    card.addEventListener("mousemove", (event) => {
+      if (!timerId) return;
+      if (Math.abs(event.clientX - startX) > 8 || Math.abs(event.clientY - startY) > 8) {
+        cancelLongPress();
+      }
+    });
+
+    card.addEventListener("mouseup", cancelLongPress);
+    card.addEventListener("mouseleave", cancelLongPress);
   });
 }
 
@@ -1119,18 +1222,6 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "view-barcode-records") {
-    if (state.scanResult) {
-      state.scanResult = {
-        ...state.scanResult,
-        records: getRecordsByBarcode(state.scanResult.barcode),
-        view: "records",
-      };
-      render();
-    }
-    return;
-  }
-
   if (action === "submit-form") {
     submitForm();
     return;
@@ -1150,15 +1241,19 @@ function handleAction(action, target) {
   }
 
   if (action === "delete-record") {
-    const id = target.dataset.id;
-    if (!window.confirm("确定删除这条商品记录吗？删除后无法恢复。")) return;
-    state.batches = state.batches.filter((batch) => batch.id !== id);
-    saveBatches();
-    closeSwipeActions();
-    render();
+    performDeleteRecord(target.dataset.id);
     return;
   }
 
+}
+
+function performDeleteRecord(id) {
+  if (!id) return;
+  if (!window.confirm("长按已触发删除，确定删除这条商品记录吗？删除后无法恢复。")) return;
+  state.batches = state.batches.filter((batch) => batch.id !== id);
+  saveBatches();
+  closeSwipeActions();
+  render();
 }
 
 function submitForm() {
