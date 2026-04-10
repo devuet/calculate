@@ -7,23 +7,18 @@
     <title>保质期管理</title>
     <style>
       :root {
-        --bg: #f4f6fb;
-        --surface: rgba(255, 255, 255, 0.92);
-        --surface-solid: #ffffff;
-        --line: #e5e9f2;
-        --line-strong: #d5ddec;
-        --text: #172033;
-        --muted: #7d8798;
+        --bg: #f6f7fb;
+        --surface: #ffffff;
+        --line: #e8ebf3;
+        --text: #182132;
+        --muted: #8b94a7;
         --blue: #2f6bff;
         --blue-soft: #edf3ff;
-        --amber: #ef8a17;
-        --amber-soft: #fff4e6;
-        --red: #d84343;
-        --red-soft: #feebeb;
-        --green: #1f8f5f;
-        --green-soft: #e7f7ef;
-        --shadow: 0 18px 40px rgba(30, 44, 80, 0.08);
-        --radius-xl: 26px;
+        --amber: #d79a19;
+        --red: #d24c4c;
+        --green: #1d9a63;
+        --shadow: 0 18px 40px rgba(34, 50, 84, 0.08);
+        --radius-xl: 24px;
         --radius-lg: 20px;
         --radius-md: 16px;
         --radius-sm: 12px;
@@ -37,16 +32,15 @@
       body {
         margin: 0;
         min-height: 100%;
-        background:
-          radial-gradient(circle at top, #ffffff 0%, #f7f9ff 32%, #eef2f9 100%);
-        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        background: linear-gradient(180deg, #fcfdff 0%, #f2f5fb 100%);
         color: var(--text);
+        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       }
 
       body {
         display: flex;
         justify-content: center;
-        padding: 20px 12px;
+        padding: 0;
       }
 
       button,
@@ -57,35 +51,39 @@
       button {
         border: 0;
         background: none;
-        padding: 0;
         cursor: pointer;
       }
 
       .phone-shell {
         width: min(100%, 420px);
-        min-height: min(920px, calc(100dvh - 40px));
+        min-height: 100dvh;
         background: linear-gradient(180deg, #fdfefe 0%, #f5f7fb 100%);
-        border: 1px solid rgba(223, 229, 239, 0.95);
-        border-radius: 32px;
-        box-shadow: 0 24px 60px rgba(40, 54, 86, 0.12);
-        overflow: hidden;
-        position: relative;
         display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
       }
 
       #app {
         flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
+      }
+
+      .page {
+        flex: 1;
         min-height: 0;
+        display: flex;
+        flex-direction: column;
       }
 
       .topbar {
-        padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 14px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+        padding: calc(20px + env(safe-area-inset-top, 0px)) 14px 8px;
+        background: #ffffff;
         position: sticky;
         top: 0;
-        z-index: 8;
+        z-index: 3;
       }
 
       .topbar-row {
@@ -95,353 +93,347 @@
         gap: 12px;
       }
 
-      .title-wrap h1 {
-        margin: 0;
-        font-size: 31px;
-        line-height: 1.12;
-        letter-spacing: -0.03em;
-      }
-
-      .subtitle {
-        margin-top: 6px;
-        color: var(--muted);
-        font-size: 13px;
+      .topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
       }
 
       .icon-button {
-        width: 42px;
-        height: 42px;
+        width: 38px;
+        height: 38px;
         border-radius: 50%;
         display: grid;
         place-items: center;
         color: var(--text);
-        background: rgba(255, 255, 255, 0.95);
+        background: #ffffff;
         border: 1px solid var(--line);
-        box-shadow: 0 10px 24px rgba(23, 32, 51, 0.08);
+        box-shadow: 0 6px 16px rgba(24, 33, 50, 0.05);
+        flex-shrink: 0;
       }
 
-      .search-bar {
-        margin-top: 14px;
-        display: none;
+      .title-wrap h1 {
+        margin: 0;
+        font-size: 17px;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
       }
 
-      .search-bar.visible {
-        display: block;
+      .subtitle {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted);
       }
 
-      .search-input {
+      .search-panel {
+        margin-top: 12px;
+      }
+
+      .search-input,
+      .text-field {
         width: 100%;
         border: 1px solid var(--line);
         border-radius: 16px;
-        padding: 14px 16px;
-        background: var(--surface-solid);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        background: #ffffff;
+        padding: 14px 15px;
+        color: var(--text);
+        font-size: 16px;
+        -webkit-appearance: none;
+        appearance: none;
       }
 
       .tabs {
-        margin-top: 16px;
+        margin-top: 12px;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
       }
 
       .tab {
-        padding: 12px 10px;
-        border-radius: 999px;
+        padding: 12px 0 11px;
         color: var(--muted);
-        background: rgba(255, 255, 255, 0.7);
-        border: 1px solid transparent;
+        font-size: 13px;
         font-weight: 600;
+        position: relative;
       }
 
       .tab.active {
         color: var(--blue);
-        background: var(--blue-soft);
-        border-color: rgba(47, 107, 255, 0.18);
       }
 
-      .toolbar {
-        margin-top: 14px;
+      .tab.active::after {
+        content: "";
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: -1px;
+        height: 2px;
+        border-radius: 999px;
+        background: var(--blue);
+      }
+
+      .sort-row {
+        padding: 10px 14px 0;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 12px;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
-      .chip-toggle {
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.8);
-        border: 1px solid var(--line);
+      .sort-label {
+        font-size: 12px;
         color: var(--muted);
-        padding: 9px 14px;
-        font-size: 13px;
       }
 
-      .chip-toggle.active {
-        color: var(--green);
-        background: var(--green-soft);
-        border-color: rgba(31, 143, 95, 0.18);
+      .sort-chip {
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: #5f6880;
+        padding: 6px 11px;
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .sort-chip.active {
+        color: #ffffff;
+        background: var(--blue);
+        border-color: var(--blue);
       }
 
       .content {
         flex: 1;
-        padding: 12px 16px calc(104px + env(safe-area-inset-bottom, 0px));
+        min-height: 0;
         overflow: auto;
         -webkit-overflow-scrolling: touch;
+        padding: 12px 14px calc(104px + env(safe-area-inset-bottom, 0px));
       }
 
       .stack {
         display: grid;
-        gap: 14px;
+        gap: 12px;
       }
 
-      .group-card,
-      .calculator-card,
+      .product-card,
+      .panel,
+      .batch-card,
       .empty-state {
-        background: var(--surface);
-        border: 1px solid rgba(224, 230, 240, 0.95);
+        background: #ffffff;
+        border: 1px solid var(--line);
         border-radius: var(--radius-xl);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(14px);
+        box-shadow: 0 8px 22px rgba(34, 50, 84, 0.04);
       }
 
-      .group-card {
+      .product-card {
         overflow: hidden;
       }
 
-      .group-header {
-        padding: 18px;
-        display: grid;
-        gap: 12px;
+      .product-main {
+        padding: 16px 16px 14px;
       }
 
-      .group-top {
+      .product-head {
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
+        gap: 12px;
+        align-items: center;
       }
 
-      .group-name {
+      .product-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        background: transparent;
         font-size: 20px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        flex-shrink: 0;
       }
 
-      .group-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .meta-chip,
-      .status-badge {
-        border-radius: 999px;
-        padding: 7px 10px;
-        font-size: 12px;
+      .product-title {
+        font-size: 16px;
         font-weight: 700;
       }
 
-      .meta-chip {
-        color: var(--muted);
-        background: #f6f8fc;
-        border: 1px solid var(--line);
-      }
-
-      .status-badge.active {
-        color: var(--green);
-        background: var(--green-soft);
-      }
-
-      .status-badge.removeSoon {
-        color: var(--amber);
-        background: var(--amber-soft);
-      }
-
-      .status-badge.expired {
-        color: var(--red);
-        background: var(--red-soft);
-      }
-
-      .status-badge.archived {
-        color: #6f7a8b;
-        background: #edf1f6;
-      }
-
-      .group-summary {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-      }
-
-      .summary-box {
-        padding: 12px;
-        border-radius: 18px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
-        border: 1px solid var(--line);
-      }
-
-      .summary-label {
-        font-size: 12px;
-        color: var(--muted);
-      }
-
-      .summary-value {
-        margin-top: 8px;
-        font-size: 15px;
-        font-weight: 700;
-      }
-
-      .summary-value.small {
-        font-size: 13px;
-      }
-
-      .expand-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        color: var(--blue);
-        font-weight: 700;
-      }
-
-      .batch-list {
-        border-top: 1px solid rgba(224, 230, 240, 0.95);
-        padding: 0 18px 18px;
-        display: none;
-      }
-
-      .group-card.expanded .batch-list {
-        display: grid;
-        gap: 12px;
-      }
-
-      .batch-item {
-        margin-top: 16px;
-        padding: 16px;
-        border-radius: 20px;
-        background: #ffffff;
-        border: 1px solid var(--line);
-      }
-
-      .batch-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .batch-title {
-        font-size: 15px;
-        font-weight: 700;
-      }
-
-      .batch-grid {
-        margin-top: 14px;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-      }
-
-      .date-cell {
-        padding: 10px;
-        border-radius: 16px;
-        background: #f8faff;
-        border: 1px solid #edf2fb;
-      }
-
-      .date-label {
+      .product-meta {
+        margin-top: 2px;
         color: var(--muted);
         font-size: 11px;
       }
 
-      .date-value {
-        margin-top: 6px;
-        font-size: 13px;
+      .status-dot {
+        margin-left: auto;
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 11px;
         font-weight: 700;
-        line-height: 1.4;
       }
 
-      .batch-footer {
-        margin-top: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
+      .status-dot.active {
+        background: #ebf8f1;
+        color: var(--green);
       }
 
-      .hint {
+      .status-dot.removeSoon {
+        background: #fff5e7;
+        color: var(--amber);
+      }
+
+      .status-dot.expired {
+        background: #ffeded;
+        color: var(--red);
+      }
+
+      .status-dot.archived {
+        background: #eef1f6;
+        color: #6f7a8d;
+      }
+
+      .date-summary {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px;
+      }
+
+      .date-summary-item {
+        min-width: 0;
+      }
+
+      .date-summary-label {
         color: var(--muted);
         font-size: 12px;
       }
 
-      .action-row {
+      .date-summary-value {
+        margin-top: 5px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .date-summary-value.removeSoon {
+        color: var(--amber);
+      }
+
+      .date-summary-value.expired {
+        color: var(--red);
+      }
+
+      .countdown {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .product-footer {
+        margin-top: 14px;
         display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        border-top: 1px solid #f5f6fa;
+        padding-top: 9px;
+      }
+
+      .small-chip {
+        padding: 0;
+        border-radius: 0;
+        font-size: 11px;
+        background: transparent;
+        color: #98a1b3;
+      }
+
+      .link-button {
+        color: #a3acbc;
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.01em;
+        padding: 2px 0;
+      }
+
+      .batch-list {
+        display: none;
+        padding: 0 16px 16px;
+        gap: 10px;
+      }
+
+      .product-card.expanded .batch-list {
+        display: grid;
+      }
+
+      .batch-card {
+        padding: 14px;
+        border-radius: 18px;
+        box-shadow: none;
+      }
+
+      .batch-top,
+      .batch-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .batch-label {
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .batch-grid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
       }
 
-      .text-button,
+      .batch-cell {
+        border-radius: 14px;
+        background: #f7f9fd;
+        padding: 10px;
+      }
+
+      .batch-cell-label {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .batch-cell-value {
+        margin-top: 5px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.5;
+      }
+
+      .ghost-button,
       .primary-button,
-      .ghost-button {
-        padding: 11px 14px;
+      .danger-button {
+        padding: 12px 14px;
         border-radius: 14px;
         font-weight: 700;
       }
 
-      .text-button {
-        color: var(--red);
-        background: var(--red-soft);
-      }
-
       .ghost-button {
-        color: var(--text);
         background: #f4f6fb;
-        border: 1px solid var(--line);
+        color: var(--text);
       }
 
       .primary-button {
-        color: #ffffff;
         background: linear-gradient(135deg, #2f6bff 0%, #3f7cff 100%);
-        box-shadow: 0 12px 24px rgba(47, 107, 255, 0.24);
+        color: #ffffff;
       }
 
-      .empty-state {
-        min-height: 52vh;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 28px;
+      .danger-button {
+        background: #ffefef;
+        color: var(--red);
       }
 
-      .empty-icon {
-        font-size: 58px;
-      }
-
-      .empty-title {
-        margin-top: 12px;
-        font-size: 22px;
-        font-weight: 700;
-      }
-
-      .empty-text {
-        margin-top: 8px;
-        color: var(--muted);
-        line-height: 1.6;
-      }
-
-      .calculator-card {
-        padding: 18px;
-      }
-
-      .section-title {
-        font-size: 18px;
-        font-weight: 700;
-      }
-
-      .section-subtitle {
-        margin-top: 6px;
-        color: var(--muted);
-        font-size: 13px;
+      .panel {
+        padding: 18px 16px;
       }
 
       .field {
@@ -451,214 +443,30 @@
       .field-label {
         display: block;
         margin-bottom: 8px;
+        color: #5f6880;
         font-size: 13px;
-        color: var(--muted);
         font-weight: 700;
-      }
-
-      .text-field {
-        width: 100%;
-        border-radius: 18px;
-        border: 1px solid var(--line);
-        background: #ffffff;
-        padding: 15px 16px;
-        color: var(--text);
       }
 
       .segment {
         display: inline-grid;
         grid-template-columns: repeat(2, 1fr);
-        border-radius: 16px;
-        background: #f5f7fb;
         border: 1px solid var(--line);
+        border-radius: 16px;
         overflow: hidden;
+        background: #f5f7fb;
       }
 
       .segment button {
         min-width: 56px;
-        padding: 12px 16px;
-        color: var(--muted);
+        padding: 12px 14px;
+        color: #61708a;
         font-weight: 700;
       }
 
       .segment button.active {
         background: var(--blue);
         color: #ffffff;
-      }
-
-      .quick-grid {
-        margin-top: 12px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .quick-chip {
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #ffffff;
-        border: 1px solid var(--line);
-        color: var(--muted);
-      }
-
-      .quick-chip.active {
-        color: var(--blue);
-        background: var(--blue-soft);
-        border-color: rgba(47, 107, 255, 0.18);
-      }
-
-      .result-panel {
-        margin-top: 18px;
-        padding: 18px;
-        border-radius: 22px;
-        background: linear-gradient(180deg, #f6f9ff 0%, #eef4ff 100%);
-        border: 1px solid rgba(47, 107, 255, 0.14);
-        display: grid;
-        gap: 12px;
-      }
-
-      .result-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .result-box {
-        padding: 14px;
-        background: rgba(255, 255, 255, 0.85);
-        border-radius: 18px;
-      }
-
-      .result-label {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .result-value {
-        margin-top: 8px;
-        font-size: 17px;
-        font-weight: 700;
-        line-height: 1.5;
-      }
-
-      .fab {
-        position: fixed;
-        right: 20px;
-        bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-        width: 62px;
-        height: 62px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #2f6bff 0%, #4b85ff 100%);
-        color: #ffffff;
-        box-shadow: 0 18px 34px rgba(47, 107, 255, 0.32);
-        font-size: 34px;
-        display: grid;
-        place-items: center;
-        z-index: 5;
-      }
-
-      .bottom-nav {
-        margin-top: auto;
-        padding: 10px 18px calc(10px + env(safe-area-inset-bottom, 0px));
-        background: rgba(255, 255, 255, 0.96);
-        border-top: 1px solid rgba(224, 230, 240, 0.95);
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .nav-item {
-        padding: 10px 12px;
-        border-radius: 18px;
-        color: var(--muted);
-        display: grid;
-        justify-items: center;
-        gap: 5px;
-        font-weight: 700;
-      }
-
-      .nav-item.active {
-        color: var(--blue);
-        background: var(--blue-soft);
-      }
-
-      .modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(18, 24, 36, 0.28);
-        display: none;
-        align-items: flex-end;
-        z-index: 10;
-        padding-top: 40px;
-      }
-
-      .modal.visible {
-        display: flex;
-      }
-
-      .sheet {
-        width: 100%;
-        max-width: 420px;
-        max-height: min(94dvh, 94%);
-        overflow: auto;
-        background: #ffffff;
-        border-radius: 28px 28px 0 0;
-        padding: 18px 18px calc(20px + env(safe-area-inset-bottom, 0px));
-        margin: 0 auto;
-      }
-
-      .sheet-handle {
-        width: 48px;
-        height: 5px;
-        border-radius: 999px;
-        background: #d7deea;
-        margin: 0 auto 18px;
-      }
-
-      .sheet-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .sheet-title {
-        font-size: 22px;
-        font-weight: 700;
-      }
-
-      .category-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-      }
-
-      .category-chip {
-        border-radius: 20px;
-        border: 1px solid var(--line);
-        background: #fbfcfe;
-        padding: 12px 8px;
-        text-align: center;
-        color: var(--muted);
-      }
-
-      .category-chip.active {
-        color: var(--blue);
-        background: var(--blue-soft);
-        border-color: rgba(47, 107, 255, 0.22);
-      }
-
-      .category-icon {
-        display: block;
-        font-size: 22px;
-        margin-bottom: 6px;
-      }
-
-      .sheet-actions {
-        margin-top: 18px;
-        display: grid;
-        grid-template-columns: 1fr 1.2fr;
-        gap: 12px;
       }
 
       .inline-row {
@@ -668,78 +476,189 @@
         align-items: center;
       }
 
-      .helper-text {
-        margin-top: 10px;
+      .quick-grid,
+      .category-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .quick-chip,
+      .category-chip {
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: #637089;
+      }
+
+      .quick-chip {
+        border-radius: 999px;
+        padding: 8px 12px;
+      }
+
+      .quick-chip.active {
+        background: var(--blue-soft);
+        border-color: #cfe0ff;
+        color: var(--blue);
+      }
+
+      .category-chip {
+        min-width: calc(25% - 6px);
+        border-radius: 18px;
+        padding: 12px 8px;
+        text-align: center;
+      }
+
+      .category-chip.active {
+        background: var(--blue-soft);
+        border-color: #cfe0ff;
+        color: var(--blue);
+      }
+
+      .category-icon {
+        display: block;
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+
+      .preview-box {
+        margin-top: 12px;
+        border-radius: 18px;
+        background: #f6f9ff;
+        border: 1px solid #dce6ff;
+        padding: 14px;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .preview-item {
+        background: rgba(255, 255, 255, 0.88);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .preview-label {
         color: var(--muted);
+        font-size: 12px;
+      }
+
+      .preview-value {
+        margin-top: 6px;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+
+      .helper-text,
+      .error-text {
+        margin-top: 10px;
         font-size: 12px;
         line-height: 1.6;
       }
 
-      .error {
-        margin-top: 12px;
-        padding: 12px 14px;
-        border-radius: 16px;
-        color: var(--red);
-        background: var(--red-soft);
+      .helper-text {
+        color: var(--muted);
       }
 
-      .floating-fab {
+      .error-text {
+        color: var(--red);
+      }
+
+      .empty-state {
+        min-height: 50vh;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 28px;
+      }
+
+      .empty-icon {
+        font-size: 52px;
+      }
+
+      .empty-title {
+        margin-top: 10px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .empty-text {
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .fab-layer {
         position: fixed;
         left: 50%;
+        bottom: calc(80px + env(safe-area-inset-bottom, 0px));
         width: min(100%, 420px);
         transform: translateX(-50%);
         pointer-events: none;
-        bottom: 0;
-        z-index: 5;
       }
 
-      .floating-fab .fab {
+      .fab {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        margin-left: auto;
+        margin-right: 16px;
         pointer-events: auto;
+        display: grid;
+        place-items: center;
+        font-size: 30px;
+        color: #ffffff;
+        background: linear-gradient(135deg, #2f6bff 0%, #4b85ff 100%);
+        box-shadow: 0 16px 30px rgba(47, 107, 255, 0.28);
       }
 
-      .preview-slot {
-        min-height: 84px;
+      .bottom-nav {
+        margin-top: auto;
+        padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: rgba(255, 255, 255, 0.98);
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
       }
 
-      .search-input,
-      .text-field {
-        -webkit-appearance: none;
-        appearance: none;
-        font-size: 16px;
+      .nav-item {
+        padding: 8px 12px;
+        border-radius: 14px;
+        display: grid;
+        justify-items: center;
+        gap: 3px;
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 12px;
       }
 
-      .sheet-open {
-        overflow: hidden;
+      .nav-item.active {
+        color: var(--blue);
+        background: var(--blue-soft);
       }
 
-      @media (max-width: 420px) {
+      @media (min-width: 421px) {
         body {
-          padding: 0;
+          padding: 20px 0;
         }
 
         .phone-shell {
-          width: 100%;
-          min-height: 100dvh;
-          border-radius: 0;
-          border: 0;
+          min-height: min(920px, calc(100dvh - 40px));
+          border-radius: 28px;
+          border: 1px solid var(--line);
+          box-shadow: 0 24px 60px rgba(40, 54, 86, 0.12);
         }
+      }
 
-        .content {
-          padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
-        }
-
+      @media (max-width: 360px) {
         .batch-grid,
-        .group-summary,
-        .result-grid {
+        .date-summary,
+        .preview-grid {
           grid-template-columns: 1fr;
-        }
-
-        .category-grid {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-
-        .sheet-actions {
-          grid-template-columns: 1fr 1fr;
         }
       }
     </style>
@@ -756,11 +675,12 @@
         daysUntil,
         formatDisplayDate,
         formatIsoDate,
-        getBatchStatus,
         groupProductsByName,
+        sortProductGroups,
+        summarizeProductGroup,
       } from './app-logic.mjs';
 
-      const STORAGE_KEY = 'shelf-life-manager-v1';
+      const STORAGE_KEY = 'shelf-life-manager-v2';
       const todayIso = formatIsoDate(new Date());
       const quickValues = [3, 7, 10, 15, 30, 60, 90];
       const categories = [
@@ -775,14 +695,13 @@
       ];
 
       const state = {
-        view: 'manage',
+        page: 'manage',
+        filter: 'all',
+        sortBy: 'urgency',
         searchVisible: false,
         search: '',
-        filter: 'all',
-        showArchived: false,
-        expanded: new Set(),
+        expandedGroups: new Set(),
         batches: loadBatches(),
-        modalOpen: false,
         formError: '',
         form: createDefaultForm(),
         calculator: {
@@ -793,7 +712,6 @@
       };
 
       const app = document.querySelector('#app');
-      const body = document.body;
 
       function createDefaultForm() {
         return {
@@ -809,8 +727,8 @@
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) return [];
-          const data = JSON.parse(raw);
-          return Array.isArray(data) ? data : [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
         } catch {
           return [];
         }
@@ -820,487 +738,377 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
       }
 
-      function syncBodyState() {
-        body.classList.toggle('sheet-open', state.modalOpen);
-      }
-
       function createId() {
         return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
       function getCategoryMeta(categoryId) {
-        return categories.find((category) => category.id === categoryId) || categories[categories.length - 1];
+        return categories.find((item) => item.id === categoryId) || categories[categories.length - 1];
       }
 
-      function getPreview({ productionDate, shelfLifeValue, shelfLifeUnit }) {
-        if (!productionDate || !shelfLifeValue) return null;
+      function getCounts() {
+        const groups = groupProductsByName(state.batches, new Date());
+        const activeBatches = state.batches.filter((batch) => !batch.archived);
+        const removeSoon = activeBatches.filter((batch) => batch.removalDate <= todayIso && batch.expiryDate >= todayIso).length;
+        const expired = activeBatches.filter((batch) => batch.expiryDate < todayIso).length;
 
+        return {
+          groupCount: groups.length,
+          activeBatchCount: activeBatches.length,
+          removeSoon,
+          expired,
+        };
+      }
+
+      function getVisibleGroups() {
+        const groups = groupProductsByName(state.batches, new Date())
+          .map((group) => {
+            const matchedBatches = group.batches.filter((batch) => {
+              if (batch.archived) return false;
+              if (state.search && !batch.name.includes(state.search.trim())) return false;
+              if (state.filter === 'removeSoon' && batch.status !== 'removeSoon') return false;
+              if (state.filter === 'expired' && batch.status !== 'expired') return false;
+              return true;
+            });
+
+            if (!matchedBatches.length) return null;
+
+            return {
+              ...group,
+              batches: matchedBatches,
+            };
+          })
+          .filter(Boolean);
+
+        return sortProductGroups(groups, state.sortBy, new Date());
+      }
+
+      function getPreview(formState) {
+        if (!formState.productionDate || !formState.shelfLifeValue) return null;
         try {
           return calculateBatchDates({
-            productionDate,
-            shelfLifeValue: Number(shelfLifeValue),
-            shelfLifeUnit,
+            productionDate: formState.productionDate,
+            shelfLifeValue: Number(formState.shelfLifeValue),
+            shelfLifeUnit: formState.shelfLifeUnit,
           });
         } catch {
           return null;
         }
       }
 
-      function getVisibleGroups() {
-        const grouped = groupProductsByName(state.batches, new Date());
-
-        return grouped
-          .map((group) => {
-            const visibleBatches = group.batches.filter((batch) => {
-              const matchesSearch = !state.search || batch.name.includes(state.search.trim());
-              const matchesArchived = state.showArchived ? true : !batch.archived;
-              const matchesFilter =
-                state.filter === 'all' || batch.status === state.filter;
-
-              return matchesSearch && matchesArchived && matchesFilter;
-            });
-
-            const archivedBatches = state.showArchived
-              ? group.batches.filter((batch) => batch.archived && (!state.search || batch.name.includes(state.search.trim())))
-              : [];
-
-            if (!visibleBatches.length && !archivedBatches.length) {
-              return null;
-            }
-
-            const reference = visibleBatches[0] || archivedBatches[0];
-
-            return {
-              ...group,
-              batches: visibleBatches,
-              archivedBatches,
-              referenceStatus: reference?.status || group.referenceStatus,
-            };
-          })
-          .filter(Boolean);
-      }
-
-      function getCounts() {
-        const activeBatches = state.batches.filter((batch) => !batch.archived);
-        let removeSoonCount = 0;
-        let expiredCount = 0;
-
-        for (const batch of activeBatches) {
-          const status = getBatchStatus({
-            removalDate: batch.removalDate,
-            expiryDate: batch.expiryDate,
-            today: new Date(),
-          });
-
-          if (status === 'removeSoon') removeSoonCount += 1;
-          if (status === 'expired') expiredCount += 1;
-        }
-
-        return {
-          activeBatches: activeBatches.length,
-          groupedItems: groupProductsByName(activeBatches).length,
-          removeSoonCount,
-          expiredCount,
-        };
-      }
-
       function render() {
         const counts = getCounts();
         const groups = getVisibleGroups();
-        const managementEmpty = !groups.length;
-        const formPreview = getPreview(state.form);
-        const calculatorPreview = getPreview(state.calculator);
+        const pageContent = state.page === 'manage'
+          ? renderManagePage(counts, groups)
+          : state.page === 'add'
+            ? renderAddPage()
+            : renderCalculatorPage();
 
         app.innerHTML = `
-          <header class="topbar">
-            <div class="topbar-row">
-              <div class="title-wrap">
-                <h1>${state.view === 'manage' ? '保质期管理' : '保质期计算器'}</h1>
-                <div class="subtitle">
-                  ${
-                    state.view === 'manage'
-                      ? `共 ${counts.groupedItems} 种商品，${counts.activeBatches} 个在管批次`
-                      : '输入生产日期和保质期，立即得到下架日和过期日'
-                  }
-                </div>
-              </div>
-              ${
-                state.view === 'manage'
-                  ? `<button class="icon-button" data-action="toggle-search" aria-label="搜索">🔍</button>`
-                  : `<button class="icon-button" data-action="copy-calculator" aria-label="使用计算结果">✓</button>`
-              }
-            </div>
+          <div class="page">
+            ${pageContent}
+            ${state.page === 'manage' ? renderBottomNav() : ''}
+            ${state.page === 'manage' ? '<div class="fab-layer"><button class="fab" data-action="go-add">+</button></div>' : ''}
+          </div>
+        `;
 
-            ${
-              state.view === 'manage'
-                ? `
-                  <div class="search-bar ${state.searchVisible ? 'visible' : ''}">
-                    <input
-                      class="search-input"
-                      type="search"
-                      placeholder="搜索商品名"
-                      value="${escapeHtml(state.search)}"
-                      data-input="search"
-                    />
-                  </div>
-                  <div class="tabs">
-                    ${renderTab('all', '全部')}
-                    ${renderTab('removeSoon', `即将下架 ${counts.removeSoonCount ? `· ${counts.removeSoonCount}` : ''}`)}
-                    ${renderTab('expired', `已过期 ${counts.expiredCount ? `· ${counts.expiredCount}` : ''}`)}
-                  </div>
-                  <div class="toolbar">
-                    <button class="chip-toggle ${state.showArchived ? 'active' : ''}" data-action="toggle-archived">
-                      ${state.showArchived ? '已显示已下架批次' : '查看已下架批次'}
-                    </button>
-                    <div class="hint">生产日算第 1 天，下架日 = 过期日前 2 天</div>
-                  </div>
-                `
-                : ''
-            }
-          </header>
+        bindInputs();
+      }
 
-          <main class="content">
-            ${
-              state.view === 'manage'
-                ? managementEmpty
-                  ? renderEmptyState()
-                  : `<div class="stack">${groups.map(renderGroupCard).join('')}</div>`
-                : renderCalculator(calculatorPreview)
-            }
-          </main>
-
-          ${
-            state.view === 'manage'
-              ? `<div class="floating-fab"><button class="fab" data-action="open-modal" aria-label="新增商品">+</button></div>`
-              : ''
-          }
-
+      function renderBottomNav() {
+        return `
           <nav class="bottom-nav">
-            <button class="nav-item ${state.view === 'manage' ? 'active' : ''}" data-nav="manage">
+            <button class="nav-item ${state.page === 'manage' ? 'active' : ''}" data-nav="manage">
               <span>📋</span>
               <span>管理</span>
             </button>
-            <button class="nav-item ${state.view === 'calculator' ? 'active' : ''}" data-nav="calculator">
+            <button class="nav-item ${state.page === 'calculator' ? 'active' : ''}" data-nav="calculator">
               <span>🧮</span>
               <span>计算器</span>
             </button>
           </nav>
+        `;
+      }
 
-          <div class="modal ${state.modalOpen ? 'visible' : ''}" data-overlay="modal">
-            <div class="sheet" role="dialog" aria-modal="true" aria-label="添加商品">
-              <div class="sheet-handle"></div>
-              <div class="sheet-header">
-                <div class="sheet-title">添加商品</div>
-                <button class="icon-button" data-action="close-modal" aria-label="关闭">✕</button>
+      function renderManagePage(counts, groups) {
+        return `
+          <header class="topbar">
+            <div class="topbar-row">
+              <div class="title-wrap">
+                <h1>保质期管理</h1>
+                <div class="subtitle">共 ${counts.groupCount} 件商品</div>
               </div>
+              <button class="icon-button" data-action="toggle-search" aria-label="搜索">🔍</button>
+            </div>
+            ${state.searchVisible ? `
+              <div class="search-panel">
+                <input class="search-input" type="search" placeholder="搜索商品名称" value="${escapeHtml(state.search)}" data-input="search" />
+              </div>
+            ` : ''}
+            <div class="tabs">
+              ${renderTab('all', '全部')}
+              ${renderTab('removeSoon', '即将过期')}
+              ${renderTab('expired', '已过期')}
+            </div>
+          </header>
 
+          <div class="sort-row">
+            <span class="sort-label">排序:</span>
+            ${renderSortChip('urgency', '紧迫度')}
+            ${renderSortChip('expiryDate', '到期日期')}
+            ${renderSortChip('removalDate', '下架日期')}
+            ${renderSortChip('name', '名称')}
+          </div>
+
+          <main class="content">
+            ${
+              groups.length
+                ? `<div class="stack">${groups.map(renderProductCard).join('')}</div>`
+                : `
+                  <section class="empty-state">
+                    <div>
+                      <div class="empty-icon">📦</div>
+                      <div class="empty-title">还没有符合条件的商品</div>
+                      <div class="empty-text">点击右下角按钮进入新页面添加商品。</div>
+                    </div>
+                  </section>
+                `
+            }
+          </main>
+        `;
+      }
+
+      function renderAddPage() {
+        return `
+          <header class="topbar">
+            <div class="topbar-row">
+              <div class="topbar-left">
+                <button class="icon-button" data-action="go-manage" aria-label="返回">←</button>
+                <div class="title-wrap">
+                  <h1>添加商品</h1>
+                  <div class="subtitle">新页面录入，保存后自动返回管理页</div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main class="content">
+            <section class="panel">
               <div class="field">
                 <label class="field-label" for="item-name">商品名称</label>
-                <input
-                  id="item-name"
-                  class="text-field"
-                  type="text"
-                  maxlength="30"
-                  placeholder="例如：牛奶、面包、感冒药"
-                  value="${escapeHtml(state.form.name)}"
-                  data-form-input="name"
-                />
+                <input id="item-name" class="text-field" type="text" maxlength="30" placeholder="例如：牛奶、面包、感冒药" value="${escapeHtml(state.form.name)}" data-form-input="name" />
               </div>
 
               <div class="field">
                 <div class="field-label">分类</div>
                 <div class="category-grid">
-                  ${categories.map(renderCategoryChip).join('')}
+                  ${categories.map((category) => `
+                    <button class="category-chip ${state.form.category === category.id ? 'active' : ''}" data-category="${category.id}">
+                      <span class="category-icon">${category.icon}</span>
+                      <span>${category.label}</span>
+                    </button>
+                  `).join('')}
                 </div>
               </div>
 
               <div class="field">
                 <label class="field-label" for="production-date">生产日期</label>
-                <input
-                  id="production-date"
-                  class="text-field"
-                  type="date"
-                  value="${state.form.productionDate}"
-                  data-form-input="productionDate"
-                />
+                <input id="production-date" class="text-field" type="date" value="${state.form.productionDate}" data-form-input="productionDate" />
               </div>
 
               <div class="field">
                 <div class="field-label">保质期</div>
                 <div class="inline-row">
-                  <input
-                    class="text-field"
-                    type="number"
-                    min="1"
-                    inputmode="numeric"
-                    placeholder="输入数值"
-                    value="${escapeHtml(state.form.shelfLifeValue)}"
-                    data-form-input="shelfLifeValue"
-                  />
+                  <input class="text-field" type="number" min="1" inputmode="numeric" placeholder="输入数值" value="${escapeHtml(state.form.shelfLifeValue)}" data-form-input="shelfLifeValue" />
                   <div class="segment">
                     <button class="${state.form.shelfLifeUnit === 'days' ? 'active' : ''}" data-form-unit="days">天</button>
                     <button class="${state.form.shelfLifeUnit === 'months' ? 'active' : ''}" data-form-unit="months">月</button>
                   </div>
                 </div>
-                <div class="quick-grid">
-                  ${quickValues.map((value) => renderQuickChip(value, state.form.shelfLifeValue)).join('')}
+                <div class="quick-grid" style="margin-top:12px;">
+                  ${quickValues.map((value) => `<button class="quick-chip ${Number(state.form.shelfLifeValue) === value ? 'active' : ''}" data-form-quick="${value}">${value}${state.form.shelfLifeUnit === 'months' ? '月' : '天'}</button>`).join('')}
                 </div>
               </div>
 
-              <div class="field">
-                <div class="field-label">自动计算结果</div>
-                <div class="preview-slot" data-form-preview>${renderFormPreview(formPreview)}</div>
+              <div class="preview-box" data-form-preview>
+                ${renderFormPreview()}
               </div>
 
-              ${state.formError ? `<div class="error">${escapeHtml(state.formError)}</div>` : ''}
+              ${state.formError ? `<div class="error-text">${escapeHtml(state.formError)}</div>` : ''}
 
-              <div class="sheet-actions">
-                <button class="ghost-button" data-action="close-modal">取消</button>
+              <div class="field" style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px;">
+                <button class="ghost-button" data-action="go-manage">取消</button>
                 <button class="primary-button" data-action="submit-form">添加商品</button>
               </div>
-            </div>
-          </div>
-        `;
-
-        syncBodyState();
-        bindInputs();
-      }
-
-      function renderTab(value, label) {
-        return `<button class="tab ${state.filter === value ? 'active' : ''}" data-filter="${value}">${label}</button>`;
-      }
-
-      function renderQuickChip(value, selectedValue) {
-        const active = Number(selectedValue) === value;
-        return `<button class="quick-chip ${active ? 'active' : ''}" data-form-quick="${value}">${value}${state.form.shelfLifeUnit === 'months' ? '月' : '天'}</button>`;
-      }
-
-      function renderCategoryChip(category) {
-        return `
-          <button class="category-chip ${state.form.category === category.id ? 'active' : ''}" data-category="${category.id}">
-            <span class="category-icon">${category.icon}</span>
-            <span>${category.label}</span>
-          </button>
+            </section>
+          </main>
         `;
       }
 
-      function renderEmptyState() {
+      function renderCalculatorPage() {
         return `
-          <section class="empty-state">
-            <div>
-              <div class="empty-icon">📦</div>
-              <div class="empty-title">还没有符合条件的商品</div>
-              <div class="empty-text">
-                ${
-                  state.filter === 'all'
-                    ? '点击右下角按钮开始记录商品批次。'
-                    : '当前筛选下没有商品，试试切换筛选或查看已下架批次。'
-                }
+          <header class="topbar">
+            <div class="topbar-row">
+              <div class="title-wrap">
+                <h1>保质期计算器</h1>
+                <div class="subtitle">快速计算下架日和过期日</div>
               </div>
             </div>
-          </section>
-        `;
-      }
+          </header>
 
-      function renderCalculator(preview) {
-        return `
-          <section class="calculator-card">
-            <div class="section-title">快速计算</div>
-            <div class="section-subtitle">支持按天或按月计算，规则与商品列表一致。</div>
-
-            <div class="field">
-              <label class="field-label" for="calc-production-date">生产日期</label>
-              <input
-                id="calc-production-date"
-                class="text-field"
-                type="date"
-                value="${state.calculator.productionDate}"
-                data-calc-input="productionDate"
-              />
-            </div>
-
-            <div class="field">
-              <div class="field-label">保质期</div>
-              <div class="inline-row">
-                <input
-                  class="text-field"
-                  type="number"
-                  min="1"
-                  inputmode="numeric"
-                  placeholder="输入数值"
-                  value="${escapeHtml(state.calculator.shelfLifeValue)}"
-                  data-calc-input="shelfLifeValue"
-                />
-                <div class="segment">
-                  <button class="${state.calculator.shelfLifeUnit === 'days' ? 'active' : ''}" data-calc-unit="days">天</button>
-                  <button class="${state.calculator.shelfLifeUnit === 'months' ? 'active' : ''}" data-calc-unit="months">月</button>
-                </div>
+          <main class="content">
+            <section class="panel">
+              <div class="field">
+                <label class="field-label" for="calc-production">生产日期</label>
+                <input id="calc-production" class="text-field" type="date" value="${state.calculator.productionDate}" data-calc-input="productionDate" />
               </div>
-
-              <div class="quick-grid">
-                ${quickValues.map((value) => `
-                  <button
-                    class="quick-chip ${Number(state.calculator.shelfLifeValue) === value ? 'active' : ''}"
-                    data-calc-quick="${value}"
-                  >${value}${state.calculator.shelfLifeUnit === 'months' ? '月' : '天'}</button>
-                `).join('')}
-              </div>
-            </div>
-
-            <div class="result-panel" data-calculator-preview>${renderCalculatorPreview(preview)}</div>
-          </section>
-        `;
-      }
-
-      function renderFormPreview(preview) {
-        if (!preview) {
-          return '<div class="helper-text">输入生产日期和保质期后，系统会自动按“生产日算第 1 天”的规则计算。</div>';
-        }
-
-        return `
-          <div class="result-grid">
-            <div class="result-box">
-              <div class="result-label">下架日</div>
-              <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
-            </div>
-            <div class="result-box">
-              <div class="result-label">过期日</div>
-              <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
-            </div>
-          </div>
-        `;
-      }
-
-      function renderCalculatorPreview(preview) {
-        if (!preview) {
-          return `
-            <div style="text-align:center;">
-              <div class="empty-icon" style="font-size:42px;">🧮</div>
-              <div class="empty-text">请输入保质期天数或月数</div>
-            </div>
-          `;
-        }
-
-        return `
-          <div class="result-grid">
-            <div class="result-box">
-              <div class="result-label">下架日</div>
-              <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
-            </div>
-            <div class="result-box">
-              <div class="result-label">过期日</div>
-              <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
-            </div>
-          </div>
-          <div class="helper-text">
-            说明：生产日期按第 1 天计算，所以 ${formatDisplayDate(preview.expiryDate)} 为最终过期日，
-            ${formatDisplayDate(preview.removalDate)} 为建议下架日。
-          </div>
-        `;
-      }
-
-      function renderGroupCard(group) {
-        const category = getCategoryMeta(group.category);
-        const expanded = state.expanded.has(group.key);
-        const firstBatch = group.batches[0] || group.archivedBatches[0];
-        const expiryCount = group.batches.filter((batch) => batch.status === 'expired').length;
-        const removeSoonCount = group.batches.filter((batch) => batch.status === 'removeSoon').length;
-
-        return `
-          <section class="group-card ${expanded ? 'expanded' : ''}">
-            <div class="group-header">
-              <div class="group-top">
-                <div>
-                  <div class="group-name">${escapeHtml(group.name)}</div>
-                  <div class="group-meta">
-                    <span class="meta-chip">${category.icon} ${category.label}</span>
-                    <span class="meta-chip">${group.batches.length} 个在管批次</span>
-                    ${group.archivedBatches.length ? `<span class="meta-chip">${group.archivedBatches.length} 个已下架</span>` : ''}
+              <div class="field">
+                <div class="field-label">保质期</div>
+                <div class="inline-row">
+                  <input class="text-field" type="number" min="1" inputmode="numeric" placeholder="输入数值" value="${escapeHtml(state.calculator.shelfLifeValue)}" data-calc-input="shelfLifeValue" />
+                  <div class="segment">
+                    <button class="${state.calculator.shelfLifeUnit === 'days' ? 'active' : ''}" data-calc-unit="days">天</button>
+                    <button class="${state.calculator.shelfLifeUnit === 'months' ? 'active' : ''}" data-calc-unit="months">月</button>
                   </div>
                 </div>
-                <span class="status-badge ${group.referenceStatus}">${statusText(group.referenceStatus)}</span>
-              </div>
-
-              <div class="group-summary">
-                <div class="summary-box">
-                  <div class="summary-label">最近下架日</div>
-                  <div class="summary-value small">${firstBatch ? formatDisplayDate(firstBatch.removalDate) : '--'}</div>
-                </div>
-                <div class="summary-box">
-                  <div class="summary-label">最近过期日</div>
-                  <div class="summary-value small">${firstBatch ? formatDisplayDate(firstBatch.expiryDate) : '--'}</div>
-                </div>
-                <div class="summary-box">
-                  <div class="summary-label">批次提醒</div>
-                  <div class="summary-value">${expiredCount ? `${expiryCount} 过期` : removeSoonCount ? `${removeSoonCount} 待下架` : '正常'}</div>
+                <div class="quick-grid" style="margin-top:12px;">
+                  ${quickValues.map((value) => `<button class="quick-chip ${Number(state.calculator.shelfLifeValue) === value ? 'active' : ''}" data-calc-quick="${value}">${value}${state.calculator.shelfLifeUnit === 'months' ? '月' : '天'}</button>`).join('')}
                 </div>
               </div>
+              <div class="preview-box" data-calculator-preview>
+                ${renderCalculatorPreview()}
+              </div>
+              <div class="helper-text">规则固定为：生产日期算第 1 天，下架日 = 过期日前 2 天。</div>
+            </section>
+          </main>
 
-              <button class="expand-row" data-action="toggle-group" data-key="${escapeHtml(group.key)}">
-                <span>${expanded ? '收起批次' : '查看批次'}</span>
-                <span>${expanded ? '▴' : '▾'}</span>
-              </button>
+          ${renderBottomNav()}
+        `;
+      }
+
+      function renderTab(filter, label) {
+        return `<button class="tab ${state.filter === filter ? 'active' : ''}" data-filter="${filter}">${label}</button>`;
+      }
+
+      function renderSortChip(value, label) {
+        return `<button class="sort-chip ${state.sortBy === value ? 'active' : ''}" data-sort="${value}">${label}</button>`;
+      }
+
+      function renderProductCard(group) {
+        const category = getCategoryMeta(group.category);
+        const summary = summarizeProductGroup(group, new Date());
+        const expanded = state.expandedGroups.has(group.key);
+        const removalClass = summary.status === 'expired' ? 'expired' : summary.status === 'removeSoon' ? 'removeSoon' : '';
+        const expiryClass = summary.status === 'expired' ? 'expired' : '';
+
+        return `
+          <section class="product-card ${expanded ? 'expanded' : ''}">
+            <div class="product-main">
+              <div class="product-head">
+                <div class="product-icon">${category.icon}</div>
+                <div style="min-width:0;">
+                  <div class="product-title">${escapeHtml(group.name)}</div>
+                  <div class="product-meta">${group.batches.length} 个批次</div>
+                </div>
+              </div>
+
+              <div class="date-summary">
+                <div class="date-summary-item">
+                  <div class="date-summary-label">下架日期</div>
+                  <div class="date-summary-value ${removalClass}">${formatShortDate(summary.nextBatch.removalDate)}</div>
+                  <div class="countdown">${formatCountdown(summary.removalCountdown, '下架')}</div>
+                </div>
+                <div class="date-summary-item">
+                  <div class="date-summary-label">过期日期</div>
+                  <div class="date-summary-value ${expiryClass}">${formatShortDate(summary.nextBatch.expiryDate)}</div>
+                  <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
+                </div>
+              </div>
+
+              <div class="product-footer">
+                <span class="small-chip">${category.label}</span>
+                <button class="link-button" data-action="toggle-group" data-key="${escapeHtml(group.key)}">${expanded ? '收起明细' : '查看明细'}</button>
+              </div>
             </div>
 
             <div class="batch-list">
-              ${group.batches.map(renderBatchItem).join('')}
-              ${group.archivedBatches.map((batch) => renderBatchItem(batch, true)).join('')}
+              ${group.batches.map(renderBatchCard).join('')}
             </div>
           </section>
         `;
       }
 
-      function renderBatchItem(batch, archived = false) {
-        const status = archived ? 'archived' : batch.status;
-        const expiryCountdown = daysUntil(batch.expiryDate);
+      function renderBatchCard(batch) {
         return `
-          <article class="batch-item">
-            <div class="batch-head">
-              <div class="batch-title">
-                ${escapeHtml(batch.name)}
-                <span class="hint">#${escapeHtml(batch.id.slice(-4))}</span>
-              </div>
-              <span class="status-badge ${status}">${statusText(status)}</span>
+          <article class="batch-card">
+            <div class="batch-top">
+              <div class="batch-label">批次 #${escapeHtml(batch.id.slice(-4))}</div>
+              <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
             </div>
-
             <div class="batch-grid">
-              <div class="date-cell">
-                <div class="date-label">生产日期</div>
-                <div class="date-value">${formatDisplayDate(batch.productionDate)}</div>
+              <div class="batch-cell">
+                <div class="batch-cell-label">生产日期</div>
+                <div class="batch-cell-value">${formatDisplayDate(batch.productionDate)}</div>
               </div>
-              <div class="date-cell">
-                <div class="date-label">下架日</div>
-                <div class="date-value">${formatDisplayDate(batch.removalDate)}</div>
+              <div class="batch-cell">
+                <div class="batch-cell-label">下架日</div>
+                <div class="batch-cell-value">${formatDisplayDate(batch.removalDate)}</div>
               </div>
-              <div class="date-cell">
-                <div class="date-label">过期日</div>
-                <div class="date-value">${formatDisplayDate(batch.expiryDate)}</div>
+              <div class="batch-cell">
+                <div class="batch-cell-label">过期日</div>
+                <div class="batch-cell-value">${formatDisplayDate(batch.expiryDate)}</div>
               </div>
             </div>
-
-            <div class="batch-footer">
-              <div class="hint">
-                保质期 ${batch.shelfLifeValue}${batch.shelfLifeUnit === 'months' ? '个月' : '天'}
-                ${archived ? '，已标记为下架' : `，距离过期 ${expiryCountdown >= 0 ? `${expiryCountdown} 天` : `已过 ${Math.abs(expiryCountdown)} 天`}`}
-              </div>
-              <div class="action-row">
-                ${
-                  archived
-                    ? `<button class="ghost-button" data-action="restore-batch" data-id="${batch.id}">恢复</button>`
-                    : `<button class="ghost-button" data-action="archive-batch" data-id="${batch.id}">下架</button>`
-                }
-                <button class="text-button" data-action="delete-batch" data-id="${batch.id}">删除</button>
+            <div class="batch-actions" style="margin-top:12px;">
+              <div class="helper-text" style="margin:0;">保质期 ${batch.shelfLifeValue}${batch.shelfLifeUnit === 'months' ? '个月' : '天'}</div>
+              <div style="display:flex;gap:8px;">
+                <button class="ghost-button" data-action="archive-batch" data-id="${batch.id}">下架</button>
+                <button class="danger-button" data-action="delete-batch" data-id="${batch.id}">删除</button>
               </div>
             </div>
           </article>
         `;
       }
 
-      function statusText(status) {
-        if (status === 'expired') return '已过期';
-        if (status === 'removeSoon') return '即将下架';
-        if (status === 'archived') return '已下架';
-        return '正常';
+      function renderFormPreview() {
+        const preview = getPreview(state.form);
+        if (!preview) {
+          return '<div class="helper-text">输入生产日期和保质期后，这里会自动显示下架日和过期日。</div>';
+        }
+
+        return `
+          <div class="preview-grid">
+            <div class="preview-item">
+              <div class="preview-label">下架日</div>
+              <div class="preview-value">${formatDisplayDate(preview.removalDate)}</div>
+            </div>
+            <div class="preview-item">
+              <div class="preview-label">过期日</div>
+              <div class="preview-value">${formatDisplayDate(preview.expiryDate)}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderCalculatorPreview() {
+        const preview = getPreview(state.calculator);
+        if (!preview) {
+          return '<div class="helper-text">输入生产日期和保质期后，立即显示计算结果。</div>';
+        }
+
+        return `
+          <div class="preview-grid">
+            <div class="preview-item">
+              <div class="preview-label">下架日</div>
+              <div class="preview-value">${formatDisplayDate(preview.removalDate)}</div>
+            </div>
+            <div class="preview-item">
+              <div class="preview-label">过期日</div>
+              <div class="preview-value">${formatDisplayDate(preview.expiryDate)}</div>
+            </div>
+          </div>
+        `;
       }
 
       function bindInputs() {
@@ -1308,22 +1116,13 @@
         if (searchInput) {
           searchInput.addEventListener('input', (event) => {
             state.search = event.target.value;
-          });
-          searchInput.addEventListener('change', () => {
             render();
           });
         }
 
         app.querySelectorAll('[data-form-input]').forEach((input) => {
           input.addEventListener('input', (event) => {
-            const field = event.target.dataset.formInput;
-            state.form[field] = event.target.value;
-            state.formError = '';
-            refreshFormPreview();
-          });
-          input.addEventListener('change', (event) => {
-            const field = event.target.dataset.formInput;
-            state.form[field] = event.target.value;
+            state.form[event.target.dataset.formInput] = event.target.value;
             state.formError = '';
             refreshFormPreview();
           });
@@ -1331,54 +1130,40 @@
 
         app.querySelectorAll('[data-calc-input]').forEach((input) => {
           input.addEventListener('input', (event) => {
-            const field = event.target.dataset.calcInput;
-            state.calculator[field] = event.target.value;
-            refreshCalculatorPreview();
-          });
-          input.addEventListener('change', (event) => {
-            const field = event.target.dataset.calcInput;
-            state.calculator[field] = event.target.value;
+            state.calculator[event.target.dataset.calcInput] = event.target.value;
             refreshCalculatorPreview();
           });
         });
       }
 
       function refreshFormPreview() {
-        const slot = app.querySelector('[data-form-preview]');
-        if (!slot) return;
-        slot.innerHTML = renderFormPreview(getPreview(state.form));
+        const node = app.querySelector('[data-form-preview]');
+        if (node) node.innerHTML = renderFormPreview();
       }
 
       function refreshCalculatorPreview() {
-        const slot = app.querySelector('[data-calculator-preview]');
-        if (!slot) return;
-        slot.innerHTML = renderCalculatorPreview(getPreview(state.calculator));
+        const node = app.querySelector('[data-calculator-preview]');
+        if (node) node.innerHTML = renderCalculatorPreview();
       }
 
       app.addEventListener('click', (event) => {
-        const target = event.target.closest('button, [data-overlay]');
+        const target = event.target.closest('button');
         if (!target) return;
 
-        if (target.dataset.overlay === 'modal' && event.target === target) {
-          state.modalOpen = false;
-          render();
-          return;
-        }
-
-        const action = target.dataset.action;
-        if (action) {
-          handleAction(action, target);
-          return;
-        }
-
         if (target.dataset.nav) {
-          state.view = target.dataset.nav;
+          state.page = target.dataset.nav;
           render();
           return;
         }
 
         if (target.dataset.filter) {
           state.filter = target.dataset.filter;
+          render();
+          return;
+        }
+
+        if (target.dataset.sort) {
+          state.sortBy = target.dataset.sort;
           render();
           return;
         }
@@ -1410,31 +1195,39 @@
         if (target.dataset.calcQuick) {
           state.calculator.shelfLifeValue = target.dataset.calcQuick;
           render();
+          return;
         }
+
+        handleAction(target.dataset.action, target);
       });
 
       function handleAction(action, target) {
         if (action === 'toggle-search') {
           state.searchVisible = !state.searchVisible;
+          render();
+          return;
         }
 
-        if (action === 'toggle-archived') {
-          state.showArchived = !state.showArchived;
-        }
-
-        if (action === 'open-modal') {
-          state.modalOpen = true;
-        }
-
-        if (action === 'close-modal') {
-          state.modalOpen = false;
+        if (action === 'go-add') {
+          state.page = 'add';
           state.formError = '';
+          render();
+          return;
+        }
+
+        if (action === 'go-manage') {
+          state.page = 'manage';
+          state.formError = '';
+          render();
+          return;
         }
 
         if (action === 'toggle-group') {
           const key = target.dataset.key;
-          if (state.expanded.has(key)) state.expanded.delete(key);
-          else state.expanded.add(key);
+          if (state.expandedGroups.has(key)) state.expandedGroups.delete(key);
+          else state.expandedGroups.add(key);
+          render();
+          return;
         }
 
         if (action === 'submit-form') {
@@ -1443,32 +1236,17 @@
         }
 
         if (action === 'archive-batch') {
-          updateBatch(target.dataset.id, { archived: true, archivedAt: new Date().toISOString() });
-        }
-
-        if (action === 'restore-batch') {
-          updateBatch(target.dataset.id, { archived: false, archivedAt: null });
+          state.batches = state.batches.map((batch) => (
+            batch.id === target.dataset.id ? { ...batch, archived: true, archivedAt: new Date().toISOString() } : batch
+          ));
+          saveBatches();
+          render();
+          return;
         }
 
         if (action === 'delete-batch') {
           deleteBatch(target.dataset.id);
-          return;
         }
-
-        if (action === 'copy-calculator') {
-          if (state.calculator.productionDate && state.calculator.shelfLifeValue) {
-            state.form = {
-              ...state.form,
-              productionDate: state.calculator.productionDate,
-              shelfLifeValue: state.calculator.shelfLifeValue,
-              shelfLifeUnit: state.calculator.shelfLifeUnit,
-            };
-            state.modalOpen = true;
-            state.view = 'manage';
-          }
-        }
-
-        render();
       }
 
       function submitForm() {
@@ -1503,25 +1281,42 @@
 
         state.batches.unshift(batch);
         saveBatches();
-        state.modalOpen = false;
-        state.formError = '';
         state.form = createDefaultForm();
-        state.expanded.add(batch.normalizedName);
+        state.formError = '';
+        state.page = 'manage';
+        state.expandedGroups.add(batch.normalizedName);
         render();
-      }
-
-      function updateBatch(batchId, updates) {
-        state.batches = state.batches.map((batch) => (batch.id === batchId ? { ...batch, ...updates } : batch));
-        saveBatches();
       }
 
       function deleteBatch(batchId) {
-        const confirmed = window.confirm('确定删除这个批次吗？删除后无法恢复。');
-        if (!confirmed) return;
-
+        if (!window.confirm('确定删除这个批次吗？删除后无法恢复。')) return;
         state.batches = state.batches.filter((batch) => batch.id !== batchId);
         saveBatches();
         render();
+      }
+
+      function statusText(status) {
+        if (status === 'expired') return '已过期';
+        if (status === 'removeSoon') return '待处理';
+        if (status === 'archived') return '已下架';
+        return '正常';
+      }
+
+      function formatShortDate(value) {
+        const iso = formatIsoDate(value);
+        return iso.replace(/^(\d{4})-/, '').replace('-', '-');
+      }
+
+      function formatCountdown(days, label) {
+        if (days < 0) return `已过 ${Math.abs(days)} 天`;
+        if (days === 0) return `今天${label}`;
+        return `${days} 天后${label}`;
+      }
+
+      function formatExpiryCountdown(days) {
+        if (days < 0) return `已过期 ${Math.abs(days)} 天`;
+        if (days === 0) return '今天过期';
+        return `剩余 ${days} 天`;
       }
 
       function escapeHtml(value) {

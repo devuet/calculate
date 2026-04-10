@@ -164,3 +164,63 @@ export function groupProductsByName(batches, today = new Date()) {
       return leftDate.localeCompare(rightDate) || left.name.localeCompare(right.name, 'zh-Hans-CN');
     });
 }
+
+export function summarizeProductGroup(group, today = new Date()) {
+  const activeBatches = group.batches.filter((batch) => !batch.archived);
+  const nextBatch = activeBatches[0] || group.batches[0] || null;
+
+  if (!nextBatch) {
+    return {
+      nextBatch: null,
+      removalCountdown: null,
+      expiryCountdown: null,
+      status: 'active',
+    };
+  }
+
+  return {
+    nextBatch,
+    removalCountdown: daysUntil(nextBatch.removalDate, today),
+    expiryCountdown: daysUntil(nextBatch.expiryDate, today),
+    status: nextBatch.status,
+  };
+}
+
+export function sortProductGroups(groups, sortBy = 'urgency', today = new Date()) {
+  const statusRank = {
+    expired: 0,
+    removeSoon: 1,
+    active: 2,
+    archived: 3,
+  };
+
+  return [...groups].sort((left, right) => {
+    const leftSummary = summarizeProductGroup(left, today);
+    const rightSummary = summarizeProductGroup(right, today);
+
+    if (sortBy === 'name') {
+      return left.name.localeCompare(right.name, 'zh-Hans-CN');
+    }
+
+    if (sortBy === 'removalDate') {
+      return (
+        (leftSummary.nextBatch?.removalDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.removalDate || '9999-12-31') ||
+        left.name.localeCompare(right.name, 'zh-Hans-CN')
+      );
+    }
+
+    if (sortBy === 'expiryDate') {
+      return (
+        (leftSummary.nextBatch?.expiryDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.expiryDate || '9999-12-31') ||
+        left.name.localeCompare(right.name, 'zh-Hans-CN')
+      );
+    }
+
+    return (
+      statusRank[leftSummary.status] - statusRank[rightSummary.status] ||
+      (leftSummary.nextBatch?.removalDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.removalDate || '9999-12-31') ||
+      (leftSummary.nextBatch?.expiryDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.expiryDate || '9999-12-31') ||
+      left.name.localeCompare(right.name, 'zh-Hans-CN')
+    );
+  });
+}
