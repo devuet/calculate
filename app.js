@@ -16,9 +16,10 @@ const todayIso = formatIsoDate(new Date());
 
 const state = {
   page: "manage",
-  filter: "attention",
-  categoryFilter: "all",
+  filter: "all",
+  categoryFilters: [],
   searchVisible: false,
+  filterPanelVisible: false,
   search: "",
   swipedGroupKey: null,
   modalGroupKey: null,
@@ -110,6 +111,7 @@ function getBatchStatus({ removalDate, expiryDate, today = new Date() }) {
   const expiry = parseDateInput(expiryDate);
   if (compareDate.getTime() > expiry.getTime()) return "expired";
   if (compareDate.getTime() >= removal.getTime()) return "removeSoon";
+  if (compareDate.getTime() >= addDays(removal, -1).getTime()) return "upcomingRemove";
   return "active";
 }
 
@@ -193,11 +195,20 @@ function getAllRecordsForGroup(groupKey) {
 }
 
 function sortProductGroups(groups, sortBy = "urgency", today = new Date()) {
-  const statusRank = { expired: 0, removeSoon: 1, active: 2, archived: 3 };
+  const statusRank = { expired: 0, removeSoon: 1, upcomingRemove: 2, active: 3, archived: 4 };
   return [...groups].sort((left, right) => {
     const leftSummary = summarizeProductGroup(left, today);
     const rightSummary = summarizeProductGroup(right, today);
     if (sortBy === "name") return compareName(left.name, right.name);
+    if (sortBy === "createdAt") {
+      const leftCreatedAt = left.batches.reduce((latest, batch) => (
+        !latest || String(batch.createdAt || "") > latest ? String(batch.createdAt || "") : latest
+      ), "");
+      const rightCreatedAt = right.batches.reduce((latest, batch) => (
+        !latest || String(batch.createdAt || "") > latest ? String(batch.createdAt || "") : latest
+      ), "");
+      return rightCreatedAt.localeCompare(leftCreatedAt) || compareName(left.name, right.name);
+    }
     if (sortBy === "removalDate") {
       return (
         (leftSummary.nextBatch?.removalDate || "9999-12-31").localeCompare(rightSummary.nextBatch?.removalDate || "9999-12-31") ||
@@ -275,7 +286,7 @@ function getCounts() {
 function getVisibleGroups() {
   const groups = groupProductsByName(state.batches, new Date())
     .map((group) => {
-      if (state.categoryFilter !== "all" && group.category !== state.categoryFilter) return null;
+      if (state.categoryFilters.length && !state.categoryFilters.includes(group.category)) return null;
       const matchedBatches = group.batches.filter((batch) => {
         if (state.search && !batch.name.includes(state.search.trim())) return false;
         if (state.filter !== "all" && batch.archived) return false;
@@ -287,7 +298,7 @@ function getVisibleGroups() {
       return { ...group, batches: matchedBatches };
     })
     .filter(Boolean);
-  return sortProductGroups(groups, "urgency", new Date());
+  return sortProductGroups(groups, state.filter === "all" ? "createdAt" : "urgency", new Date());
 }
 
 function getPreview(formState) {
@@ -355,31 +366,55 @@ function renderManagePage(counts, groups) {
           <h1>保质期管理</h1>
           <div class="subtitle">共 ${counts.groupCount} 件商品</div>
         </div>
-        <button class="icon-button" data-action="toggle-search" aria-label="搜索">🔍</button>
+        <div class="topbar-actions">
+          <button class="icon-button ${state.searchVisible ? "active" : ""}" data-action="toggle-search" aria-label="搜索">
+            <span class="toolbar-search-icon" aria-hidden="true"></span>
+          </button>
+          <button class="icon-button ${state.filterPanelVisible ? "active" : ""}" data-action="toggle-filter-panel" aria-label="品类筛选">
+            <span class="toolbar-filter-icon" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+          </button>
+        </div>
       </div>
       ${state.searchVisible ? `
         <div class="search-panel">
           <input class="search-input" type="search" placeholder="搜索商品名称" value="${escapeHtml(state.search)}" data-input="search" />
         </div>
       ` : ""}
+      ${state.filterPanelVisible ? renderCategoryFilterPanel() : ""}
       <div class="tabs">
-        ${renderTab("attention", "待下架")}
         ${renderTab("all", "全部")}
+        ${renderTab("attention", "待下架")}
       </div>
     </header>
-
-    <div class="category-filter-row">
-      <button class="category-filter-chip ${state.categoryFilter === "all" ? "active" : ""}" data-category-filter="all">全部品类</button>
-      ${categories.map((category) => `
-        <button class="category-filter-chip ${state.categoryFilter === category.id ? "active" : ""}" data-category-filter="${category.id}">
-          ${category.label}
-        </button>
-      `).join("")}
-    </div>
 
     <main class="content">
       <div data-manage-list>${renderManageList(groups)}</div>
     </main>
+  `;
+}
+
+function renderCategoryFilterPanel() {
+  return `
+    <div class="filter-panel">
+      <div class="filter-panel-head">
+        <div class="filter-panel-title">筛选品类</div>
+        <button class="filter-clear ${state.categoryFilters.length ? "" : "disabled"}" data-action="clear-category-filters">全部显示</button>
+      </div>
+      <div class="filter-chip-grid">
+        ${categories.map((category) => `
+          <button
+            class="category-filter-chip ${state.categoryFilters.includes(category.id) ? "active" : ""}"
+            data-category-filter="${category.id}"
+          >
+            ${category.label}
+          </button>
+        `).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -399,11 +434,13 @@ function renderManageList(groups) {
 
 function renderAddPage() {
   return `
-    <header class="topbar">
+    <header class="topbar add-topbar">
       <div class="topbar-row">
         <div class="topbar-left">
-          <button class="icon-button" data-action="go-manage" aria-label="返回">←</button>
-          <div class="title-wrap">
+          <button class="icon-button" data-action="go-manage" aria-label="返回">
+            <span class="toolbar-back-icon" aria-hidden="true"></span>
+          </button>
+          <div class="title-wrap add-title-wrap">
             <h1>添加商品</h1>
             <div class="subtitle">新页面录入，保存后自动返回管理页</div>
           </div>
@@ -499,12 +536,18 @@ function renderTab(filter, label) {
 }
 
 function renderProductCard(group) {
-  const category = getCategoryMeta(group.category);
   const summary = summarizeProductGroup(group, new Date());
-  const removalClass = summary.status === "expired" ? "expired" : summary.status === "removeSoon" ? "removeSoon" : "";
-  const expiryClass = summary.status === "expired" ? "expired" : "";
-  const removalItemClass = summary.status === "expired" ? "expired" : summary.status === "removeSoon" ? "removeSoon" : "";
-  const expiryItemClass = summary.status === "expired" ? "expired" : "";
+  const productionItemClass = summary.status === "archived" ? "archived" : "";
+  const removalItemClass = summary.status === "expired"
+    ? "expired"
+    : summary.status === "removeSoon"
+      ? "removeSoon"
+      : summary.status === "upcomingRemove"
+        ? "upcomingRemove"
+        : summary.status === "archived"
+          ? "archived"
+          : "";
+  const expiryItemClass = summary.status === "expired" ? "expired" : summary.status === "archived" ? "archived" : "";
   const visibleCount = group.batches.filter((batch) => !batch.archived).length;
   const extraCount = Math.max(visibleCount - 1, 0);
   const archivedOnly = group.batches.every((batch) => batch.archived);
@@ -518,10 +561,9 @@ function renderProductCard(group) {
       </div>
       <div class="product-main" data-action="open-group" data-key="${escapeHtml(group.key)}">
         <div class="product-head">
-          <div class="product-icon">${category.icon}</div>
-          <div style="min-width:0;flex:1;">
+          <div class="product-head-main">
             <div class="product-title">${escapeHtml(group.name)}</div>
-            <div class="product-meta">${category.label}</div>
+            <div class="product-meta">生产于 ${formatDisplayDate(summary.nextBatch.productionDate)}</div>
             ${
               archivedOnly
                 ? '<div class="multi-note">已下架，记录仍保留</div>'
@@ -530,25 +572,24 @@ function renderProductCard(group) {
                   : ""
             }
           </div>
+          <span class="status-dot ${summary.status}">${statusText(summary.status)}</span>
         </div>
 
         <div class="date-summary">
-          <div class="date-summary-main ${removalItemClass}">
+          <div class="date-summary-item ${productionItemClass}">
+            <div class="date-summary-label">生产日期</div>
+            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.productionDate)}</div>
+            <div class="countdown">当前展示记录</div>
+          </div>
+          <div class="date-summary-item ${removalItemClass}">
             <div class="date-summary-label">下架日期</div>
-            <div class="date-summary-value ${removalClass}">${formatShortDate(summary.nextBatch.removalDate)}</div>
+            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.removalDate)}</div>
             <div class="countdown">${formatCountdown(summary.removalCountdown, "下架")}</div>
           </div>
-          <div class="date-summary-sub">
-            <div class="date-summary-item">
-              <div class="date-summary-label">生产日期</div>
-              <div class="date-summary-value">${formatShortDate(summary.nextBatch.productionDate)}</div>
-              <div class="countdown">最早到期项</div>
-            </div>
-            <div class="date-summary-item ${expiryItemClass}">
-              <div class="date-summary-label">过期日期</div>
-              <div class="date-summary-value ${expiryClass}">${formatShortDate(summary.nextBatch.expiryDate)}</div>
-              <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
-            </div>
+          <div class="date-summary-item ${expiryItemClass}">
+            <div class="date-summary-label">过期日期</div>
+            <div class="date-summary-value">${formatDisplayDate(summary.nextBatch.expiryDate)}</div>
+            <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
           </div>
         </div>
 
@@ -762,7 +803,10 @@ app.addEventListener("click", (event) => {
 
   if (target.dataset.categoryFilter) {
     closeSwipeActions();
-    state.categoryFilter = target.dataset.categoryFilter;
+    const categoryId = target.dataset.categoryFilter;
+    state.categoryFilters = state.categoryFilters.includes(categoryId)
+      ? state.categoryFilters.filter((item) => item !== categoryId)
+      : [...state.categoryFilters, categoryId];
     render();
     return;
   }
@@ -807,6 +851,18 @@ function handleAction(action, target) {
 
   if (action === "toggle-search") {
     state.searchVisible = !state.searchVisible;
+    render();
+    return;
+  }
+
+  if (action === "toggle-filter-panel") {
+    state.filterPanelVisible = !state.filterPanelVisible;
+    render();
+    return;
+  }
+
+  if (action === "clear-category-filters") {
+    state.categoryFilters = [];
     render();
     return;
   }
@@ -918,6 +974,7 @@ function submitForm() {
   saveBatches();
   state.form = createDefaultForm();
   state.formError = "";
+  state.filter = "all";
   state.page = "manage";
   render();
 }
@@ -932,6 +989,7 @@ function deleteBatch(batchId) {
 function statusText(status) {
   if (status === "expired") return "已过期";
   if (status === "removeSoon") return "待处理";
+  if (status === "upcomingRemove") return "即将处理";
   if (status === "archived") return "已下架";
   return "正常";
 }
