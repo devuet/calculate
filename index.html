@@ -63,13 +63,21 @@
 
       .phone-shell {
         width: min(100%, 420px);
-        min-height: calc(100vh - 40px);
+        min-height: min(920px, calc(100dvh - 40px));
         background: linear-gradient(180deg, #fdfefe 0%, #f5f7fb 100%);
         border: 1px solid rgba(223, 229, 239, 0.95);
         border-radius: 32px;
         box-shadow: 0 24px 60px rgba(40, 54, 86, 0.12);
         overflow: hidden;
         position: relative;
+        display: flex;
+      }
+
+      #app {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
 
       .topbar {
@@ -176,7 +184,10 @@
       }
 
       .content {
+        flex: 1;
         padding: 12px 16px calc(104px + env(safe-area-inset-bottom, 0px));
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       .stack {
@@ -531,7 +542,7 @@
       }
 
       .fab {
-        position: absolute;
+        position: fixed;
         right: 20px;
         bottom: calc(96px + env(safe-area-inset-bottom, 0px));
         width: 62px;
@@ -547,10 +558,7 @@
       }
 
       .bottom-nav {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        margin-top: auto;
         padding: 10px 18px calc(10px + env(safe-area-inset-bottom, 0px));
         background: rgba(255, 255, 255, 0.96);
         border-top: 1px solid rgba(224, 230, 240, 0.95);
@@ -575,7 +583,7 @@
       }
 
       .modal {
-        position: absolute;
+        position: fixed;
         inset: 0;
         background: rgba(18, 24, 36, 0.28);
         display: none;
@@ -590,11 +598,13 @@
 
       .sheet {
         width: 100%;
-        max-height: 94%;
+        max-width: 420px;
+        max-height: min(94dvh, 94%);
         overflow: auto;
         background: #ffffff;
         border-radius: 28px 28px 0 0;
         padding: 18px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+        margin: 0 auto;
       }
 
       .sheet-handle {
@@ -673,6 +683,35 @@
         background: var(--red-soft);
       }
 
+      .floating-fab {
+        position: fixed;
+        left: 50%;
+        width: min(100%, 420px);
+        transform: translateX(-50%);
+        pointer-events: none;
+        bottom: 0;
+        z-index: 5;
+      }
+
+      .floating-fab .fab {
+        pointer-events: auto;
+      }
+
+      .preview-slot {
+        min-height: 84px;
+      }
+
+      .search-input,
+      .text-field {
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 16px;
+      }
+
+      .sheet-open {
+        overflow: hidden;
+      }
+
       @media (max-width: 420px) {
         body {
           padding: 0;
@@ -680,9 +719,27 @@
 
         .phone-shell {
           width: 100%;
-          min-height: 100vh;
+          min-height: 100dvh;
           border-radius: 0;
           border: 0;
+        }
+
+        .content {
+          padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .batch-grid,
+        .group-summary,
+        .result-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .category-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .sheet-actions {
+          grid-template-columns: 1fr 1fr;
         }
       }
     </style>
@@ -736,6 +793,7 @@
       };
 
       const app = document.querySelector('#app');
+      const body = document.body;
 
       function createDefaultForm() {
         return {
@@ -760,6 +818,10 @@
 
       function saveBatches() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
+      }
+
+      function syncBodyState() {
+        body.classList.toggle('sheet-open', state.modalOpen);
       }
 
       function createId() {
@@ -909,7 +971,7 @@
 
           ${
             state.view === 'manage'
-              ? `<button class="fab" data-action="open-modal" aria-label="新增商品">+</button>`
+              ? `<div class="floating-fab"><button class="fab" data-action="open-modal" aria-label="新增商品">+</button></div>`
               : ''
           }
 
@@ -987,22 +1049,7 @@
 
               <div class="field">
                 <div class="field-label">自动计算结果</div>
-                ${
-                  formPreview
-                    ? `
-                      <div class="result-grid">
-                        <div class="result-box">
-                          <div class="result-label">下架日</div>
-                          <div class="result-value">${formatDisplayDate(formPreview.removalDate)}</div>
-                        </div>
-                        <div class="result-box">
-                          <div class="result-label">过期日</div>
-                          <div class="result-value">${formatDisplayDate(formPreview.expiryDate)}</div>
-                        </div>
-                      </div>
-                    `
-                    : `<div class="helper-text">输入生产日期和保质期后，系统会自动按“生产日算第 1 天”的规则计算。</div>`
-                }
+                <div class="preview-slot" data-form-preview>${renderFormPreview(formPreview)}</div>
               </div>
 
               ${state.formError ? `<div class="error">${escapeHtml(state.formError)}</div>` : ''}
@@ -1015,6 +1062,7 @@
           </div>
         `;
 
+        syncBodyState();
         bindInputs();
       }
 
@@ -1099,34 +1147,55 @@
               </div>
             </div>
 
-            <div class="result-panel">
-              ${
-                preview
-                  ? `
-                    <div class="result-grid">
-                      <div class="result-box">
-                        <div class="result-label">下架日</div>
-                        <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
-                      </div>
-                      <div class="result-box">
-                        <div class="result-label">过期日</div>
-                        <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
-                      </div>
-                    </div>
-                    <div class="helper-text">
-                      说明：生产日期按第 1 天计算，所以 ${formatDisplayDate(preview.expiryDate)} 为最终过期日，
-                      ${formatDisplayDate(preview.removalDate)} 为建议下架日。
-                    </div>
-                  `
-                  : `
-                    <div style="text-align:center;">
-                      <div class="empty-icon" style="font-size:42px;">🧮</div>
-                      <div class="empty-text">请输入保质期天数或月数</div>
-                    </div>
-                  `
-              }
-            </div>
+            <div class="result-panel" data-calculator-preview>${renderCalculatorPreview(preview)}</div>
           </section>
+        `;
+      }
+
+      function renderFormPreview(preview) {
+        if (!preview) {
+          return '<div class="helper-text">输入生产日期和保质期后，系统会自动按“生产日算第 1 天”的规则计算。</div>';
+        }
+
+        return `
+          <div class="result-grid">
+            <div class="result-box">
+              <div class="result-label">下架日</div>
+              <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
+            </div>
+            <div class="result-box">
+              <div class="result-label">过期日</div>
+              <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderCalculatorPreview(preview) {
+        if (!preview) {
+          return `
+            <div style="text-align:center;">
+              <div class="empty-icon" style="font-size:42px;">🧮</div>
+              <div class="empty-text">请输入保质期天数或月数</div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="result-grid">
+            <div class="result-box">
+              <div class="result-label">下架日</div>
+              <div class="result-value">${formatDisplayDate(preview.removalDate)}</div>
+            </div>
+            <div class="result-box">
+              <div class="result-label">过期日</div>
+              <div class="result-value">${formatDisplayDate(preview.expiryDate)}</div>
+            </div>
+          </div>
+          <div class="helper-text">
+            说明：生产日期按第 1 天计算，所以 ${formatDisplayDate(preview.expiryDate)} 为最终过期日，
+            ${formatDisplayDate(preview.removalDate)} 为建议下架日。
+          </div>
         `;
       }
 
@@ -1239,6 +1308,8 @@
         if (searchInput) {
           searchInput.addEventListener('input', (event) => {
             state.search = event.target.value;
+          });
+          searchInput.addEventListener('change', () => {
             render();
           });
         }
@@ -1248,7 +1319,13 @@
             const field = event.target.dataset.formInput;
             state.form[field] = event.target.value;
             state.formError = '';
-            render();
+            refreshFormPreview();
+          });
+          input.addEventListener('change', (event) => {
+            const field = event.target.dataset.formInput;
+            state.form[field] = event.target.value;
+            state.formError = '';
+            refreshFormPreview();
           });
         });
 
@@ -1256,9 +1333,26 @@
           input.addEventListener('input', (event) => {
             const field = event.target.dataset.calcInput;
             state.calculator[field] = event.target.value;
-            render();
+            refreshCalculatorPreview();
+          });
+          input.addEventListener('change', (event) => {
+            const field = event.target.dataset.calcInput;
+            state.calculator[field] = event.target.value;
+            refreshCalculatorPreview();
           });
         });
+      }
+
+      function refreshFormPreview() {
+        const slot = app.querySelector('[data-form-preview]');
+        if (!slot) return;
+        slot.innerHTML = renderFormPreview(getPreview(state.form));
+      }
+
+      function refreshCalculatorPreview() {
+        const slot = app.querySelector('[data-calculator-preview]');
+        if (!slot) return;
+        slot.innerHTML = renderCalculatorPreview(getPreview(state.calculator));
       }
 
       app.addEventListener('click', (event) => {
