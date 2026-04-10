@@ -137,7 +137,7 @@ button {
 .tabs {
   margin-top: 12px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   align-items: center;
   border-bottom: 1px solid var(--line);
 }
@@ -171,6 +171,35 @@ button {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 14px calc(104px + env(safe-area-inset-bottom, 0px));
+}
+
+.category-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 14px 0;
+}
+
+.category-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.category-filter-chip {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: #647086;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.category-filter-chip.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-color: #cfe0ff;
 }
 
 .stack {
@@ -298,15 +327,32 @@ button {
 .date-summary {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+}
+
+.date-summary-main,
+.date-summary-sub {
+  min-width: 0;
+}
+
+.date-summary-main {
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fe 100%);
+  border: 1px solid #edf1f7;
+}
+
+.date-summary-sub {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .date-summary-item {
   min-width: 0;
-  padding: 14px 14px 13px;
+  padding: 13px 14px 12px;
   border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9fe 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
   border: 1px solid #edf1f7;
 }
 
@@ -335,9 +381,24 @@ button {
 
 .date-summary-value {
   margin-top: 8px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.date-summary-main .date-summary-label {
+  font-size: 12px;
+}
+
+.date-summary-main .date-summary-value {
+  margin-top: 10px;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+
+.date-summary-main .countdown {
+  margin-top: 8px;
+  font-size: 13px;
 }
 
 .date-summary-value.removeSoon {
@@ -802,7 +863,7 @@ button {
 
 @media (max-width: 360px) {
   .batch-grid,
-  .date-summary,
+  .date-summary-sub,
   .preview-grid,
   .record-grid {
     grid-template-columns: 1fr;

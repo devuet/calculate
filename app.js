@@ -1,5 +1,6 @@
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "shelf-life-manager-v2";
+const ARCHIVE_RETENTION_DAYS = 30;
 
 const categories = [
   { id: "dairy", label: "乳制品", icon: "🥛" },
@@ -7,8 +8,6 @@ const categories = [
   { id: "snack", label: "零食", icon: "🍪" },
   { id: "drink", label: "饮料", icon: "🥤" },
   { id: "grain", label: "粮食", icon: "🍚" },
-  { id: "medicine", label: "药品", icon: "💊" },
-  { id: "cosmetic", label: "化妆品", icon: "💄" },
   { id: "other", label: "其他", icon: "📦" },
 ];
 
@@ -17,7 +16,8 @@ const todayIso = formatIsoDate(new Date());
 
 const state = {
   page: "manage",
-  filter: "all",
+  filter: "attention",
+  categoryFilter: "all",
   searchVisible: false,
   search: "",
   swipedGroupKey: null,
@@ -235,6 +235,22 @@ function saveBatches() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
 }
 
+function purgeExpiredArchivedRecords() {
+  const now = Date.now();
+  const retentionMs = ARCHIVE_RETENTION_DAYS * DAY_IN_MS;
+  const nextBatches = state.batches.filter((batch) => {
+    if (!batch.archived || !batch.archivedAt) return true;
+    const archivedAt = new Date(batch.archivedAt).getTime();
+    if (Number.isNaN(archivedAt)) return true;
+    return now - archivedAt < retentionMs;
+  });
+
+  if (nextBatches.length !== state.batches.length) {
+    state.batches = nextBatches;
+    saveBatches();
+  }
+}
+
 function createId() {
   return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -259,11 +275,11 @@ function getCounts() {
 function getVisibleGroups() {
   const groups = groupProductsByName(state.batches, new Date())
     .map((group) => {
+      if (state.categoryFilter !== "all" && group.category !== state.categoryFilter) return null;
       const matchedBatches = group.batches.filter((batch) => {
         if (state.search && !batch.name.includes(state.search.trim())) return false;
         if (state.filter !== "all" && batch.archived) return false;
-        if (state.filter === "removeSoon" && batch.status !== "removeSoon") return false;
-        if (state.filter === "expired" && batch.status !== "expired") return false;
+        if (state.filter === "attention" && batch.status === "active") return false;
         if (state.filter === "all" && batch.archived) return true;
         return true;
       });
@@ -347,11 +363,19 @@ function renderManagePage(counts, groups) {
         </div>
       ` : ""}
       <div class="tabs">
+        ${renderTab("attention", "待下架")}
         ${renderTab("all", "全部")}
-        ${renderTab("removeSoon", "即将过期")}
-        ${renderTab("expired", "已过期")}
       </div>
     </header>
+
+    <div class="category-filter-row">
+      <button class="category-filter-chip ${state.categoryFilter === "all" ? "active" : ""}" data-category-filter="all">全部品类</button>
+      ${categories.map((category) => `
+        <button class="category-filter-chip ${state.categoryFilter === category.id ? "active" : ""}" data-category-filter="${category.id}">
+          ${category.label}
+        </button>
+      `).join("")}
+    </div>
 
     <main class="content">
       <div data-manage-list>${renderManageList(groups)}</div>
@@ -506,24 +530,25 @@ function renderProductCard(group) {
                   : ""
             }
           </div>
-          <span class="small-chip ${archivedOnly ? "archived" : ""}">${visibleCount} 条</span>
         </div>
 
         <div class="date-summary">
-          <div class="date-summary-item">
-            <div class="date-summary-label">生产日期</div>
-            <div class="date-summary-value">${formatShortDate(summary.nextBatch.productionDate)}</div>
-            <div class="countdown">最早到期项</div>
-          </div>
-          <div class="date-summary-item ${removalItemClass}">
+          <div class="date-summary-main ${removalItemClass}">
             <div class="date-summary-label">下架日期</div>
             <div class="date-summary-value ${removalClass}">${formatShortDate(summary.nextBatch.removalDate)}</div>
             <div class="countdown">${formatCountdown(summary.removalCountdown, "下架")}</div>
           </div>
-          <div class="date-summary-item ${expiryItemClass}">
-            <div class="date-summary-label">过期日期</div>
-            <div class="date-summary-value ${expiryClass}">${formatShortDate(summary.nextBatch.expiryDate)}</div>
-            <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
+          <div class="date-summary-sub">
+            <div class="date-summary-item">
+              <div class="date-summary-label">生产日期</div>
+              <div class="date-summary-value">${formatShortDate(summary.nextBatch.productionDate)}</div>
+              <div class="countdown">最早到期项</div>
+            </div>
+            <div class="date-summary-item ${expiryItemClass}">
+              <div class="date-summary-label">过期日期</div>
+              <div class="date-summary-value ${expiryClass}">${formatShortDate(summary.nextBatch.expiryDate)}</div>
+              <div class="countdown">${formatExpiryCountdown(summary.expiryCountdown)}</div>
+            </div>
           </div>
         </div>
 
@@ -684,15 +709,15 @@ function bindSwipeGestures() {
       const touch = event.touches[0];
       const deltaX = touch.clientX - startX;
       const deltaY = touch.clientY - startY;
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) * 0.9) {
         tracking = false;
         return;
       }
-      if (deltaX < -28) {
+      if (deltaX < -20) {
         state.swipedGroupKey = activeKey;
         refreshManageList();
         tracking = false;
-      } else if (deltaX > 28 && state.swipedGroupKey === activeKey) {
+      } else if (deltaX > 18 && state.swipedGroupKey === activeKey) {
         closeSwipeActions();
         refreshManageList();
         tracking = false;
@@ -713,16 +738,31 @@ app.addEventListener("click", (event) => {
   }
 
   const target = event.target.closest("button, [data-action]");
-  if (!target) return;
+  if (!target) {
+    if (state.swipedGroupKey) {
+      closeSwipeActions();
+      refreshManageList();
+    }
+    return;
+  }
 
   if (target.dataset.nav) {
+    closeSwipeActions();
     state.page = target.dataset.nav;
     render();
     return;
   }
 
   if (target.dataset.filter) {
+    closeSwipeActions();
     state.filter = target.dataset.filter;
+    render();
+    return;
+  }
+
+  if (target.dataset.categoryFilter) {
+    closeSwipeActions();
+    state.categoryFilter = target.dataset.categoryFilter;
     render();
     return;
   }
@@ -917,4 +957,5 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+purgeExpiredArchivedRecords();
 render();
