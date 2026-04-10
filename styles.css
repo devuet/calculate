@@ -277,6 +277,20 @@ button {
   color: var(--muted);
 }
 
+.subtitle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline-add-button {
+  padding: 0;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .add-topbar {
   padding-bottom: 10px;
 }
@@ -1206,6 +1220,70 @@ button {
   color: #ffffff;
   background: linear-gradient(135deg, #2f6bff 0%, #4b85ff 100%);
   box-shadow: 0 16px 30px rgba(47, 107, 255, 0.28);
+}
+
+.fab-scan {
+  font-size: 0;
+}
+
+.fab-scan-icon {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+}
+
+.fab-scan-icon::before,
+.fab-scan-icon::after,
+.fab-scan-icon span::before,
+.fab-scan-icon span::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: #ffffff;
+}
+
+.fab-scan-icon::before {
+  top: 0;
+  left: 0;
+  border-top: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-top-left-radius: 3px;
+}
+
+.fab-scan-icon::after {
+  top: 0;
+  right: 0;
+  border-top: 2px solid #ffffff;
+  border-right: 2px solid #ffffff;
+  border-top-right-radius: 3px;
+}
+
+.fab-scan-icon span::before {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid #ffffff;
+  border-left: 2px solid #ffffff;
+  border-bottom-left-radius: 3px;
+}
+
+.fab-scan-icon span::after {
+  right: 0;
+  bottom: 0;
+  border-bottom: 2px solid #ffffff;
+  border-right: 2px solid #ffffff;
+  border-bottom-right-radius: 3px;
+}
+
+.fab-scan-line {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 11px;
+  height: 2px;
+  border-radius: 999px;
+  background: #ffffff;
 }
 
 .bottom-nav {

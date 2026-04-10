@@ -394,8 +394,8 @@ function render() {
     <div class="page">
       ${pageContent}
       ${state.page === "manage" ? renderBottomNav() : ""}
-      ${state.page === "manage" ? '<div class="fab-layer"><button class="fab" data-action="go-add">+</button></div>' : ""}
-      ${state.page === "add" && state.scanner.open ? renderScannerSheet() : ""}
+      ${state.page === "manage" ? '<div class="fab-layer"><button class="fab fab-scan" data-action="open-scanner" aria-label="扫描条形码"><span class="fab-scan-icon"><span></span><span class="fab-scan-line"></span></span></button></div>' : ""}
+      ${state.scanner.open ? renderScannerSheet() : ""}
       ${state.scanResult ? renderScanResultSheet() : ""}
     </div>
   `;
@@ -423,15 +423,12 @@ function renderManagePage(counts, records) {
       <div class="topbar-row">
         <div class="title-wrap">
           <h1>保质期管理</h1>
-          <div class="subtitle">共 ${counts.groupCount} 件商品</div>
+          <div class="subtitle subtitle-row">
+            <span>共 ${counts.groupCount} 件商品</span>
+            <button class="inline-add-button" data-action="go-add">手动添加</button>
+          </div>
         </div>
         <div class="topbar-actions">
-          <button class="icon-button" data-action="open-scanner" aria-label="扫描条形码">
-            <span class="toolbar-scan-icon" aria-hidden="true">
-              <span></span>
-              <span class="toolbar-scan-icon-line"></span>
-            </span>
-          </button>
           <button class="icon-button ${state.searchVisible ? "active" : ""}" data-action="toggle-search" aria-label="搜索">
             <span class="toolbar-search-icon" aria-hidden="true"></span>
           </button>
