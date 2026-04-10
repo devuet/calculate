@@ -1,7 +1,7 @@
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "shelf-life-manager-v2";
 const TEMPLATE_STORAGE_KEY = "shelf-life-templates-v1";
-const ARCHIVE_RETENTION_DAYS = 30;
+const ARCHIVE_RETENTION_DAYS = 3;
 
 const categories = [
   { id: "dairy", label: "乳制品", icon: "🥛" },
@@ -18,6 +18,7 @@ const todayIso = formatIsoDate(new Date());
 const state = {
   page: "manage",
   filter: "all",
+  statusFilters: [],
   categoryFilters: [],
   searchVisible: false,
   filterPanelVisible: false,
@@ -407,16 +408,30 @@ function getCounts() {
 
 function getVisibleBatches() {
   const today = new Date();
+  const normalizedSearch = state.search.trim();
+  const archivedView = state.statusFilters.includes("archived");
   const records = state.batches
-    .filter((batch) => !batch.archived)
     .map((batch) => enrichBatch(batch, today))
     .filter((batch) => {
+      if (archivedView) {
+        if (!batch.archived) return false;
+      } else if (state.filter === "all" && batch.archived) {
+        return false;
+      }
       if (state.categoryFilters.length && !state.categoryFilters.includes(batch.category)) return false;
-      if (state.search && !batch.name.includes(state.search.trim())) return false;
-      if (state.filter === "attention" && batch.status === "active") return false;
+      if (normalizedSearch) {
+        const matchedName = batch.name.includes(normalizedSearch);
+        const matchedBarcode = normalizeBarcode(batch.barcode).includes(normalizeBarcode(normalizedSearch));
+        if (!matchedName && !matchedBarcode) return false;
+      }
+      if (!archivedView) {
+        if (state.filter === "attention" && batch.status === "active") return false;
+        const extraStatusFilters = state.statusFilters.filter((item) => item !== "archived");
+        if (extraStatusFilters.length && !extraStatusFilters.includes(batch.status)) return false;
+      }
       return true;
     });
-  return sortBatchRecords(records, state.filter === "all" ? "createdAt" : "urgency", today);
+  return sortBatchRecords(records, archivedView || state.filter === "all" ? "createdAt" : "urgency", today);
 }
 
 function getPreview(formState) {
@@ -478,6 +493,7 @@ function renderBottomNav() {
 }
 
 function renderManagePage(counts, records) {
+  const archivedView = state.statusFilters.includes("archived");
   return `
     <header class="topbar">
       <div class="topbar-row">
@@ -507,10 +523,12 @@ function renderManagePage(counts, records) {
         </div>
       ` : ""}
       ${state.filterPanelVisible ? renderCategoryFilterPanel() : ""}
-      <div class="tabs">
-        ${renderTab("all", "全部")}
-        ${renderTab("attention", "待下架")}
-      </div>
+      ${archivedView
+        ? '<div class="panel-mode-label">当前视图：已下架</div>'
+        : `<div class="tabs">
+            ${renderTab("all", "在售")}
+            ${renderTab("attention", "待下架")}
+          </div>`}
     </header>
 
     <main class="content">
@@ -523,9 +541,24 @@ function renderCategoryFilterPanel() {
   return `
     <div class="filter-panel">
       <div class="filter-panel-head">
-        <div class="filter-panel-title">筛选品类</div>
-        <button class="filter-clear ${state.categoryFilters.length ? "" : "disabled"}" data-action="clear-category-filters">全部显示</button>
+        <div class="filter-panel-title">筛选条件</div>
+        <button class="filter-clear ${(state.categoryFilters.length || state.statusFilters.length) ? "" : "disabled"}" data-action="clear-all-filters">全部显示</button>
       </div>
+      <div class="filter-group-label">状态</div>
+      <div class="filter-chip-grid">
+        ${[
+          { id: "expired", label: "已过期" },
+          { id: "archived", label: "已下架" },
+        ].map((item) => `
+          <button
+            class="category-filter-chip ${state.statusFilters.includes(item.id) ? "active" : ""}"
+            data-status-filter="${item.id}"
+          >
+            ${item.label}
+          </button>
+        `).join("")}
+      </div>
+      <div class="filter-group-label">品类</div>
       <div class="filter-chip-grid">
         ${categories.map((category) => `
           <button
@@ -611,7 +644,6 @@ function renderAddPage() {
             ${quickValues.map((value) => `<button class="quick-chip ${Number(state.form.shelfLifeValue) === value ? "active" : ""}" data-form-quick="${value}">${value}${state.form.shelfLifeUnit === "months" ? "月" : "天"}</button>`).join("")}
           </div>
         </div>
-        <div class="preview-box" data-form-preview>${renderFormPreview()}</div>
         ${state.formError ? `<div class="error-text">${escapeHtml(state.formError)}</div>` : ""}
         <div class="field" style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px;">
           <button class="ghost-button" data-action="go-manage">取消</button>
@@ -749,13 +781,10 @@ function renderRecordCard(batch, mode = "manage") {
           <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
         </div>
       ` : ""}
-      <div class="product-main" ${isManage ? `data-longpress-id="${escapeHtml(batch.id)}"` : ""}>
+      <div class="product-main" ${isManage ? `data-longpress-id="${escapeHtml(batch.id)}"` : ""} data-action="toggle-record-info" data-id="${escapeHtml(batch.id)}">
         <div class="product-head">
           <div class="product-head-main">
-            <div class="product-title-row">
-              <div class="product-title">${escapeHtml(batch.name)}</div>
-              <button class="info-toggle-button ${infoExpanded ? "active" : ""}" data-action="toggle-record-info" data-id="${escapeHtml(batch.id)}" aria-label="查看附加信息">!</button>
-            </div>
+            <div class="product-title">${escapeHtml(batch.name)}</div>
             ${batch.barcode ? `<div class="product-barcode">条码 ${escapeHtml(batch.barcode)}</div>` : ""}
           </div>
           <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
@@ -1173,6 +1202,16 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (target.dataset.statusFilter) {
+    closeSwipeActions();
+    const statusId = target.dataset.statusFilter;
+    state.statusFilters = state.statusFilters.includes(statusId)
+      ? state.statusFilters.filter((item) => item !== statusId)
+      : [...state.statusFilters, statusId];
+    render();
+    return;
+  }
+
   if (target.dataset.category) {
     state.form.category = target.dataset.category;
     render();
@@ -1223,8 +1262,9 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "clear-category-filters") {
+  if (action === "clear-all-filters") {
     state.categoryFilters = [];
+    state.statusFilters = [];
     render();
     return;
   }
