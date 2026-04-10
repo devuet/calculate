@@ -191,6 +191,7 @@ button {
 .product-card {
   overflow: hidden;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 255, 0.96) 100%);
+  position: relative;
 }
 
 .product-card.archived-card {
@@ -201,6 +202,14 @@ button {
 .product-main {
   padding: 18px 18px 16px;
   cursor: pointer;
+  position: relative;
+  z-index: 2;
+  background: inherit;
+  transition: transform 180ms ease;
+}
+
+.product-card.swiped .product-main {
+  transform: translateX(-132px);
 }
 
 .product-head {
@@ -251,6 +260,13 @@ button {
   background: #9fb6ff;
 }
 
+.view-all-link {
+  margin-left: 6px;
+  color: #7f97d8;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .status-dot {
   margin-left: auto;
   border-radius: 999px;
@@ -282,7 +298,7 @@ button {
 .date-summary {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -350,23 +366,11 @@ button {
   margin-top: 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
   border-top: 1px solid #f5f6fa;
   padding-top: 9px;
-}
-
-.small-chip {
-  padding: 0;
-  border-radius: 0;
-  font-size: 11px;
-  background: transparent;
-  color: #9aa4b6;
-}
-
-.small-chip.archived {
-  color: #c0c6d2;
 }
 
 .detail-hint {
@@ -376,14 +380,29 @@ button {
   letter-spacing: 0.01em;
 }
 
-.batch-list {
-  display: none;
-  padding: 0 16px 16px;
-  gap: 10px;
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 72px 60px;
+  width: 132px;
+  z-index: 1;
 }
 
-.product-card.expanded .batch-list {
-  display: grid;
+.swipe-action {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.swipe-action.archive {
+  background: linear-gradient(180deg, #f3be4f 0%, #e2a220 100%);
+}
+
+.swipe-action.delete {
+  background: linear-gradient(180deg, #ef7f7f 0%, #df5050 100%);
 }
 
 .batch-card {
@@ -613,6 +632,111 @@ button {
   line-height: 1.6;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.32);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24px 12px 0;
+  z-index: 20;
+}
+
+.modal-sheet {
+  width: min(100%, 420px);
+  max-height: min(82dvh, 760px);
+  background: #ffffff;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -6px 30px rgba(22, 30, 48, 0.12);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-header {
+  position: sticky;
+  top: 0;
+  padding: 16px 16px 12px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #eef2f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.modal-subtitle {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.modal-content {
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 10px;
+}
+
+.record-item {
+  border: 1px solid #edf1f7;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+  padding: 14px;
+}
+
+.record-item.removeSoon {
+  background: linear-gradient(180deg, #fffdf7 0%, #fff6e8 100%);
+  border-color: #f6dfb4;
+}
+
+.record-item.expired {
+  background: linear-gradient(180deg, #fffafa 0%, #ffefef 100%);
+  border-color: #f4caca;
+}
+
+.record-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.record-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.record-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.record-cell {
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.record-label {
+  color: #97a1b3;
+  font-size: 11px;
+}
+
+.record-value {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .fab-layer {
   position: fixed;
   left: 50%;
@@ -679,7 +803,8 @@ button {
 @media (max-width: 360px) {
   .batch-grid,
   .date-summary,
-  .preview-grid {
+  .preview-grid,
+  .record-grid {
     grid-template-columns: 1fr;
   }
 }

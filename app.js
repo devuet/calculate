@@ -20,7 +20,8 @@ const state = {
   filter: "all",
   searchVisible: false,
   search: "",
-  expandedGroups: new Set(),
+  swipedGroupKey: null,
+  modalGroupKey: null,
   batches: loadBatches(),
   formError: "",
   form: createDefaultForm(),
@@ -179,6 +180,18 @@ function summarizeProductGroup(group, today = new Date()) {
   };
 }
 
+function getAllRecordsForGroup(groupKey) {
+  const groups = groupProductsByName(state.batches, new Date());
+  const group = groups.find((item) => item.key === groupKey);
+  if (!group) return null;
+  return {
+    ...group,
+    batches: [...group.batches]
+      .filter((batch) => !batch.archived)
+      .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate)),
+  };
+}
+
 function sortProductGroups(groups, sortBy = "urgency", today = new Date()) {
   const statusRank = { expired: 0, removeSoon: 1, active: 2, archived: 3 };
   return [...groups].sort((left, right) => {
@@ -297,6 +310,7 @@ function render() {
       ${pageContent}
       ${state.page === "manage" ? renderBottomNav() : ""}
       ${state.page === "manage" ? '<div class="fab-layer"><button class="fab" data-action="go-add">+</button></div>' : ""}
+      ${state.modalGroupKey ? renderRecordsModal() : ""}
     </div>
   `;
   bindInputs();
@@ -463,17 +477,22 @@ function renderTab(filter, label) {
 function renderProductCard(group) {
   const category = getCategoryMeta(group.category);
   const summary = summarizeProductGroup(group, new Date());
-  const expanded = state.expandedGroups.has(group.key);
   const removalClass = summary.status === "expired" ? "expired" : summary.status === "removeSoon" ? "removeSoon" : "";
   const expiryClass = summary.status === "expired" ? "expired" : "";
   const removalItemClass = summary.status === "expired" ? "expired" : summary.status === "removeSoon" ? "removeSoon" : "";
   const expiryItemClass = summary.status === "expired" ? "expired" : "";
-  const extraCount = Math.max(group.batches.length - 1, 0);
+  const visibleCount = group.batches.filter((batch) => !batch.archived).length;
+  const extraCount = Math.max(visibleCount - 1, 0);
   const archivedOnly = group.batches.every((batch) => batch.archived);
+  const swiped = state.swipedGroupKey === group.key;
 
   return `
-    <section class="product-card ${expanded ? "expanded" : ""} ${archivedOnly ? "archived-card" : ""}">
-      <div class="product-main" data-action="toggle-group" data-key="${escapeHtml(group.key)}">
+    <section class="product-card ${archivedOnly ? "archived-card" : ""} ${swiped ? "swiped" : ""}" data-swipe-key="${escapeHtml(group.key)}">
+      <div class="swipe-actions">
+        <button class="swipe-action archive" data-action="archive-group" data-key="${escapeHtml(group.key)}">下架</button>
+        <button class="swipe-action delete" data-action="delete-group" data-key="${escapeHtml(group.key)}">删除</button>
+      </div>
+      <div class="product-main" data-action="open-group" data-key="${escapeHtml(group.key)}">
         <div class="product-head">
           <div class="product-icon">${category.icon}</div>
           <div style="min-width:0;flex:1;">
@@ -483,14 +502,19 @@ function renderProductCard(group) {
               archivedOnly
                 ? '<div class="multi-note">已下架，记录仍保留</div>'
                 : extraCount
-                  ? `<div class="multi-note">还有 ${extraCount} 个同名商品，点击查看</div>`
+                  ? `<div class="multi-note">包含 ${visibleCount} 条同名记录，当前展示最早到期项 <button class="view-all-link" data-action="open-group" data-key="${escapeHtml(group.key)}">查看全部</button></div>`
                   : ""
             }
           </div>
-          <span class="small-chip ${archivedOnly ? "archived" : ""}">${group.batches.length} 批</span>
+          <span class="small-chip ${archivedOnly ? "archived" : ""}">${visibleCount} 条</span>
         </div>
 
         <div class="date-summary">
+          <div class="date-summary-item">
+            <div class="date-summary-label">生产日期</div>
+            <div class="date-summary-value">${formatShortDate(summary.nextBatch.productionDate)}</div>
+            <div class="countdown">最早到期项</div>
+          </div>
           <div class="date-summary-item ${removalItemClass}">
             <div class="date-summary-label">下架日期</div>
             <div class="date-summary-value ${removalClass}">${formatShortDate(summary.nextBatch.removalDate)}</div>
@@ -504,48 +528,54 @@ function renderProductCard(group) {
         </div>
 
         <div class="product-footer">
-          <span class="detail-hint">${expanded ? "收起明细" : "点击商品查看明细"}</span>
+          <span class="detail-hint">左滑可下架或删除</span>
         </div>
-      </div>
-
-      <div class="batch-list">
-        ${group.batches.map(renderBatchCard).join("")}
       </div>
     </section>
   `;
 }
 
-function renderBatchCard(batch) {
-  const archived = Boolean(batch.archived);
+function renderRecordsModal() {
+  const group = getAllRecordsForGroup(state.modalGroupKey);
+  if (!group) return "";
+
   return `
-    <article class="batch-card">
-      <div class="batch-top">
-        <div class="batch-label">批次 #${escapeHtml(batch.id.slice(-4))}</div>
+    <div class="modal-backdrop" data-action="close-modal">
+      <div class="modal-sheet" data-modal-sheet="true">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">${escapeHtml(group.name)}</div>
+            <div class="modal-subtitle">共 ${group.batches.length} 条同名记录，按最早过期在前排序</div>
+          </div>
+          <button class="icon-button" data-action="close-modal" aria-label="关闭">✕</button>
+        </div>
+        <div class="modal-content">
+          ${group.batches.map(renderRecordItem).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRecordItem(batch) {
+  return `
+    <article class="record-item ${batch.status}">
+      <div class="record-top">
+        <div class="record-title">生产于 ${formatDisplayDate(batch.productionDate)}</div>
         <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
       </div>
-      <div class="batch-grid">
-        <div class="batch-cell">
-          <div class="batch-cell-label">生产日期</div>
-          <div class="batch-cell-value">${formatDisplayDate(batch.productionDate)}</div>
+      <div class="record-grid">
+        <div class="record-cell">
+          <div class="record-label">生产日期</div>
+          <div class="record-value">${formatDisplayDate(batch.productionDate)}</div>
         </div>
-        <div class="batch-cell">
-          <div class="batch-cell-label">下架日</div>
-          <div class="batch-cell-value">${formatDisplayDate(batch.removalDate)}</div>
+        <div class="record-cell">
+          <div class="record-label">下架日期</div>
+          <div class="record-value">${formatDisplayDate(batch.removalDate)}</div>
         </div>
-        <div class="batch-cell">
-          <div class="batch-cell-label">过期日</div>
-          <div class="batch-cell-value">${formatDisplayDate(batch.expiryDate)}</div>
-        </div>
-      </div>
-      <div class="batch-actions" style="margin-top:12px;">
-        <div class="helper-text" style="margin:0;">保质期 ${batch.shelfLifeValue}${batch.shelfLifeUnit === "months" ? "个月" : "天"}${archived ? "，已下架保留" : ""}</div>
-        <div style="display:flex;gap:8px;">
-          ${
-            archived
-              ? `<button class="ghost-button" data-action="restore-batch" data-id="${batch.id}">恢复</button>`
-              : `<button class="ghost-button" data-action="archive-batch" data-id="${batch.id}">下架</button>`
-          }
-          <button class="danger-button" data-action="delete-batch" data-id="${batch.id}">删除</button>
+        <div class="record-cell">
+          <div class="record-label">过期日期</div>
+          <div class="record-value">${formatDisplayDate(batch.expiryDate)}</div>
         </div>
       </div>
     </article>
@@ -609,6 +639,8 @@ function bindInputs() {
       refreshCalculatorPreview();
     });
   });
+
+  bindSwipeGestures();
 }
 
 function refreshFormPreview() {
@@ -625,9 +657,61 @@ function refreshManageList() {
   const node = app.querySelector("[data-manage-list]");
   if (!node) return;
   node.innerHTML = renderManageList(getVisibleGroups());
+  bindSwipeGestures();
+}
+
+function closeSwipeActions() {
+  state.swipedGroupKey = null;
+}
+
+function bindSwipeGestures() {
+  let activeKey = null;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  app.querySelectorAll("[data-swipe-key]").forEach((card) => {
+    card.ontouchstart = (event) => {
+      const touch = event.touches[0];
+      activeKey = card.dataset.swipeKey;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    };
+
+    card.ontouchmove = (event) => {
+      if (!tracking || !activeKey) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        tracking = false;
+        return;
+      }
+      if (deltaX < -28) {
+        state.swipedGroupKey = activeKey;
+        refreshManageList();
+        tracking = false;
+      } else if (deltaX > 28 && state.swipedGroupKey === activeKey) {
+        closeSwipeActions();
+        refreshManageList();
+        tracking = false;
+      }
+    };
+
+    card.ontouchend = () => {
+      tracking = false;
+      activeKey = null;
+    };
+  });
 }
 
 app.addEventListener("click", (event) => {
+  const modalSheet = event.target.closest("[data-modal-sheet]");
+  if (modalSheet && !event.target.closest("button")) {
+    return;
+  }
+
   const target = event.target.closest("button, [data-action]");
   if (!target) return;
 
@@ -677,6 +761,10 @@ app.addEventListener("click", (event) => {
 });
 
 function handleAction(action, target) {
+  if (action !== "open-group" && action !== "archive-group" && action !== "delete-group") {
+    closeSwipeActions();
+  }
+
   if (action === "toggle-search") {
     state.searchVisible = !state.searchVisible;
     render();
@@ -697,16 +785,44 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "toggle-group") {
-    const key = target.dataset.key;
-    if (state.expandedGroups.has(key)) state.expandedGroups.delete(key);
-    else state.expandedGroups.add(key);
+  if (action === "open-group") {
+    state.modalGroupKey = target.dataset.key;
+    closeSwipeActions();
+    render();
+    return;
+  }
+
+  if (action === "close-modal") {
+    state.modalGroupKey = null;
     render();
     return;
   }
 
   if (action === "submit-form") {
     submitForm();
+    return;
+  }
+
+  if (action === "archive-group") {
+    const key = target.dataset.key;
+    state.batches = state.batches.map((batch) => (
+      (batch.normalizedName || normalizeName(batch.name)) === key
+        ? { ...batch, archived: true, archivedAt: new Date().toISOString() }
+        : batch
+    ));
+    saveBatches();
+    closeSwipeActions();
+    render();
+    return;
+  }
+
+  if (action === "delete-group") {
+    const key = target.dataset.key;
+    if (!window.confirm("确定删除这组同名商品记录吗？删除后无法恢复。")) return;
+    state.batches = state.batches.filter((batch) => (batch.normalizedName || normalizeName(batch.name)) !== key);
+    saveBatches();
+    closeSwipeActions();
+    render();
     return;
   }
 
@@ -763,7 +879,6 @@ function submitForm() {
   state.form = createDefaultForm();
   state.formError = "";
   state.page = "manage";
-  state.expandedGroups.add(batch.normalizedName);
   render();
 }
 
