@@ -30,6 +30,7 @@ const state = {
   scanResult: null,
   pendingAddDraft: null,
   formError: "",
+  formWarning: "",
   form: createDefaultForm(),
   scanner: createScannerState(),
   calculator: {
@@ -325,6 +326,7 @@ function openAddPage({ usePendingDraft = false } = {}) {
   resetScanner();
   state.page = "add";
   state.formError = "";
+  state.formWarning = "";
   if (usePendingDraft && state.pendingAddDraft) {
     state.form = {
       ...createDefaultForm(),
@@ -390,6 +392,7 @@ function hasDuplicateBatch({ name, productionDate, barcode }) {
   const normalizedBarcode = normalizeBarcode(barcode);
   const normalizedName = normalizeName(name);
   return state.batches.some((batch) => {
+    if (batch.archived) return false;
     if (batch.productionDate !== productionDate) return false;
     const batchBarcode = normalizeBarcode(batch.barcode);
     if (normalizedBarcode && batchBarcode) {
@@ -653,6 +656,7 @@ function renderAddPage() {
             ${quickValues.map((value) => `<button class="quick-chip ${Number(state.form.shelfLifeValue) === value ? "active" : ""}" data-form-quick="${value}">${value}${state.form.shelfLifeUnit === "months" ? "月" : "天"}</button>`).join("")}
           </div>
         </div>
+        ${state.formWarning ? `<div class="warning-text">${escapeHtml(state.formWarning)}</div>` : ""}
         ${state.formError ? `<div class="error-text">${escapeHtml(state.formError)}</div>` : ""}
         <div class="field" style="display:grid;grid-template-columns:1fr 1.2fr;gap:12px;">
           <button class="ghost-button" data-action="go-manage">取消</button>
@@ -887,10 +891,11 @@ function bindInputs() {
 
   app.querySelectorAll("[data-form-input]").forEach((input) => {
     input.addEventListener("input", (event) => {
-      state.form[event.target.dataset.formInput] = event.target.value;
-      state.formError = "";
-      refreshFormPreview();
-    });
+    state.form[event.target.dataset.formInput] = event.target.value;
+    state.formError = "";
+    state.formWarning = "";
+    refreshFormPreview();
+  });
   });
 
   app.querySelectorAll("[data-calc-input]").forEach((input) => {
@@ -1296,6 +1301,7 @@ function handleAction(action, target) {
     resetScanner();
     state.page = "manage";
     state.formError = "";
+    state.formWarning = "";
     render();
     return;
   }
@@ -1363,6 +1369,7 @@ function performDeleteRecord(id) {
 
 function submitForm() {
   const { name, category, productionDate, shelfLifeValue, shelfLifeUnit, barcode } = state.form;
+  state.formWarning = "";
   if (!name.trim()) {
     state.formError = "请输入商品名称。";
     render();
@@ -1379,9 +1386,7 @@ function submitForm() {
     return;
   }
   if (hasDuplicateBatch({ name, productionDate, barcode })) {
-    state.formError = "该批次已存在，请不要重复添加。";
-    render();
-    return;
+    state.formWarning = "检测到当前在售中可能已有同一批次，已继续添加，请确认是否重复。";
   }
   const batch = createBatchRecord({
     id: createId(),
@@ -1406,6 +1411,7 @@ function submitForm() {
   resetScanner();
   state.form = createDefaultForm();
   state.formError = "";
+  state.formWarning = "";
   state.filter = "all";
   state.page = "manage";
   render();

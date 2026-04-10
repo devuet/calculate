@@ -963,7 +963,8 @@ button {
 }
 
 .helper-text,
-.error-text {
+.error-text,
+.warning-text {
   margin-top: 10px;
   font-size: 12px;
   line-height: 1.6;
@@ -975,6 +976,10 @@ button {
 
 .error-text {
   color: var(--red);
+}
+
+.warning-text {
+  color: #c08a2f;
 }
 
 .scanner-backdrop {
