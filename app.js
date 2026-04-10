@@ -365,9 +365,18 @@ function applyBarcodeResult(barcode) {
 function getRecordsByBarcode(barcode) {
   const normalized = normalizeBarcode(barcode);
   return state.batches
-    .filter((batch) => normalizeBarcode(batch.barcode) === normalized)
+    .filter((batch) => normalizeBarcode(batch.barcode) === normalized && !batch.archived)
     .map((batch) => enrichBatch(batch, new Date()))
     .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate) || String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function refreshScanResultRecords() {
+  if (!state.scanResult?.barcode) return;
+  const nextRecords = getRecordsByBarcode(state.scanResult.barcode);
+  state.scanResult = {
+    ...state.scanResult,
+    records: nextRecords,
+  };
 }
 
 function goToAddPageWithScanResult() {
@@ -415,7 +424,7 @@ function getVisibleBatches() {
     .filter((batch) => {
       if (archivedView) {
         if (!batch.archived) return false;
-      } else if (state.filter === "all" && batch.archived) {
+      } else if (batch.archived) {
         return false;
       }
       if (state.categoryFilters.length && !state.categoryFilters.includes(batch.category)) return false;
@@ -524,7 +533,7 @@ function renderManagePage(counts, records) {
       ` : ""}
       ${state.filterPanelVisible ? renderCategoryFilterPanel() : ""}
       ${archivedView
-        ? '<div class="panel-mode-label">当前视图：已下架</div>'
+        ? ''
         : `<div class="tabs">
             ${renderTab("all", "在售")}
             ${renderTab("attention", "待下架")}
@@ -771,12 +780,13 @@ function renderRecordCard(batch, mode = "manage") {
           : "";
   const expiryItemClass = batch.status === "expired" ? "expired" : batch.status === "archived" ? "archived" : "";
   const isManage = mode === "manage";
-  const swiped = state.swipedGroupKey === batch.id;
+  const canArchive = !batch.archived;
+  const swiped = canArchive && state.swipedGroupKey === batch.id;
   const infoExpanded = state.expandedInfoId === batch.id;
 
   return `
-    <section class="product-card ${batch.archived ? "archived-card" : ""} ${isManage && swiped ? "swiped" : ""}" ${isManage ? `data-swipe-key="${escapeHtml(batch.id)}"` : ""}>
-      ${isManage ? `
+    <section class="product-card ${batch.archived ? "archived-card" : ""} ${isManage && swiped ? "swiped" : ""}" ${isManage && canArchive ? `data-swipe-key="${escapeHtml(batch.id)}"` : ""}>
+      ${isManage && canArchive ? `
         <div class="swipe-actions">
           <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
         </div>
@@ -1330,6 +1340,7 @@ function handleAction(action, target) {
     ));
     saveBatches();
     closeSwipeActions();
+    refreshScanResultRecords();
     render();
     return;
   }
