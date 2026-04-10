@@ -23,9 +23,11 @@ const state = {
   filterPanelVisible: false,
   search: "",
   swipedGroupKey: null,
+  expandedInfoId: null,
   batches: loadBatches(),
   templates: loadTemplates(),
   scanResult: null,
+  pendingAddDraft: null,
   formError: "",
   form: createDefaultForm(),
   scanner: createScannerState(),
@@ -295,6 +297,44 @@ function clearScanResult() {
   state.scanResult = null;
 }
 
+function buildAddDraftFromScanResult() {
+  const { barcode, template } = state.scanResult || {};
+  if (!barcode) return null;
+  if (template) {
+    return {
+      barcode,
+      name: template.name,
+      category: template.category,
+      shelfLifeValue: String(template.shelfLifeValue),
+      shelfLifeUnit: template.shelfLifeUnit,
+      scanHint: `已识别条码 ${barcode}，已自动带出商品模板。`,
+    };
+  }
+  return {
+    barcode,
+    name: "",
+    category: "other",
+    shelfLifeValue: "",
+    shelfLifeUnit: "days",
+    scanHint: `已识别条码 ${barcode}，未找到模板，请补充商品信息。保存后会自动记住这个商品。`,
+  };
+}
+
+function openAddPage({ usePendingDraft = false } = {}) {
+  resetScanner();
+  state.page = "add";
+  state.formError = "";
+  if (usePendingDraft && state.pendingAddDraft) {
+    state.form = {
+      ...createDefaultForm(),
+      ...state.pendingAddDraft,
+      productionDate: state.form.productionDate || todayIso,
+    };
+    state.pendingAddDraft = null;
+  }
+  render();
+}
+
 function applyTemplateToForm(template, barcode) {
   state.form = {
     ...state.form,
@@ -327,6 +367,26 @@ function getRecordsByBarcode(barcode) {
     .filter((batch) => normalizeBarcode(batch.barcode) === normalized)
     .map((batch) => enrichBatch(batch, new Date()))
     .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate) || String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function goToAddPageWithScanResult() {
+  state.pendingAddDraft = buildAddDraftFromScanResult();
+  state.page = "add";
+  clearScanResult();
+  openAddPage({ usePendingDraft: true });
+}
+
+function hasDuplicateBatch({ name, productionDate, barcode }) {
+  const normalizedBarcode = normalizeBarcode(barcode);
+  const normalizedName = normalizeName(name);
+  return state.batches.some((batch) => {
+    if (batch.productionDate !== productionDate) return false;
+    const batchBarcode = normalizeBarcode(batch.barcode);
+    if (normalizedBarcode && batchBarcode) {
+      return batchBarcode === normalizedBarcode;
+    }
+    return normalizeName(batch.name) === normalizedName;
+  });
 }
 
 function getCategoryMeta(categoryId) {
@@ -621,28 +681,7 @@ function renderBarcodeRecordsSheet() {
 }
 
 function renderBarcodeRecordItem(batch) {
-  return `
-    <article class="record-item ${batch.status}">
-      <div class="record-top">
-        <div class="record-title">生产于 ${formatDisplayDate(batch.productionDate)}</div>
-        <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
-      </div>
-      <div class="record-grid">
-        <div class="record-cell">
-          <div class="record-label">生产日期</div>
-          <div class="record-value">${formatDisplayDate(batch.productionDate)}</div>
-        </div>
-        <div class="record-cell">
-          <div class="record-label">下架日期</div>
-          <div class="record-value">${formatDisplayDate(batch.removalDate)}</div>
-        </div>
-        <div class="record-cell">
-          <div class="record-label">过期日期</div>
-          <div class="record-value">${formatDisplayDate(batch.expiryDate)}</div>
-        </div>
-      </div>
-    </article>
-  `;
+  return renderRecordCard(batch, "scan");
 }
 
 function renderCalculatorPage() {
@@ -687,7 +726,7 @@ function renderTab(filter, label) {
   return `<button class="tab ${state.filter === filter ? "active" : ""}" data-filter="${filter}">${label}</button>`;
 }
 
-function renderProductCard(batch) {
+function renderRecordCard(batch, mode = "manage") {
   const productionItemClass = batch.status === "archived" ? "archived" : "";
   const removalItemClass = batch.status === "expired"
     ? "expired"
@@ -699,22 +738,37 @@ function renderProductCard(batch) {
           ? "archived"
           : "";
   const expiryItemClass = batch.status === "expired" ? "expired" : batch.status === "archived" ? "archived" : "";
+  const isManage = mode === "manage";
   const swiped = state.swipedGroupKey === batch.id;
+  const infoExpanded = state.expandedInfoId === batch.id;
 
   return `
-    <section class="product-card ${batch.archived ? "archived-card" : ""} ${swiped ? "swiped" : ""}" data-swipe-key="${escapeHtml(batch.id)}">
-      <div class="swipe-actions">
-        <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
-      </div>
-      <div class="product-main" data-longpress-id="${escapeHtml(batch.id)}">
+    <section class="product-card ${batch.archived ? "archived-card" : ""} ${isManage && swiped ? "swiped" : ""}" ${isManage ? `data-swipe-key="${escapeHtml(batch.id)}"` : ""}>
+      ${isManage ? `
+        <div class="swipe-actions">
+          <button class="swipe-action archive" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架</button>
+        </div>
+      ` : ""}
+      <div class="product-main" ${isManage ? `data-longpress-id="${escapeHtml(batch.id)}"` : ""}>
         <div class="product-head">
           <div class="product-head-main">
-            <div class="product-title">${escapeHtml(batch.name)}</div>
-            <div class="product-meta">添加于 ${formatCreatedDate(batch.createdAt) || formatDisplayDate(batch.productionDate)}</div>
+            <div class="product-title-row">
+              <div class="product-title">${escapeHtml(batch.name)}</div>
+              <button class="info-toggle-button ${infoExpanded ? "active" : ""}" data-action="toggle-record-info" data-id="${escapeHtml(batch.id)}" aria-label="查看附加信息">!</button>
+            </div>
             ${batch.barcode ? `<div class="product-barcode">条码 ${escapeHtml(batch.barcode)}</div>` : ""}
           </div>
           <span class="status-dot ${batch.status}">${statusText(batch.status)}</span>
         </div>
+
+        ${infoExpanded ? `
+          <div class="product-info-panel">
+            <div class="product-info-row">
+              <span class="product-info-label">添加日期</span>
+              <span class="product-info-value">${escapeHtml(formatCreatedDate(batch.createdAt) || formatDisplayDate(batch.productionDate))}</span>
+            </div>
+          </div>
+        ` : ""}
 
         <div class="date-summary">
           <div class="date-summary-item ${productionItemClass}">
@@ -733,9 +787,20 @@ function renderProductCard(batch) {
           </div>
         </div>
 
+        ${mode === "scan" ? `
+          <div class="record-inline-actions">
+            ${batch.archived
+              ? '<span class="record-inline-state">已下架</span>'
+              : `<button class="record-inline-button" data-action="archive-record" data-id="${escapeHtml(batch.id)}">下架这个批次</button>`}
+          </div>
+        ` : ""}
       </div>
     </section>
   `;
+}
+
+function renderProductCard(batch) {
+  return renderRecordCard(batch, "manage");
 }
 
 function renderFormPreview() {
@@ -1164,11 +1229,16 @@ function handleAction(action, target) {
     return;
   }
 
-  if (action === "go-add") {
-    resetScanner();
-    state.page = "add";
-    state.formError = "";
+  if (action === "toggle-record-info") {
+    const id = target.dataset.id;
+    state.expandedInfoId = state.expandedInfoId === id ? null : id;
     render();
+    return;
+  }
+
+  if (action === "go-add") {
+    state.pendingAddDraft = null;
+    openAddPage();
     return;
   }
 
@@ -1202,20 +1272,7 @@ function handleAction(action, target) {
   }
 
   if (action === "scan-add-batch") {
-    const { barcode, template } = state.scanResult || {};
-    if (barcode) {
-      if (template) {
-        applyTemplateToForm(template, barcode);
-      } else {
-        state.form = {
-          ...state.form,
-          barcode,
-          scanHint: `已识别条码 ${barcode}，未找到模板，请补充商品信息。保存后会自动记住这个商品。`,
-        };
-      }
-    }
-    clearScanResult();
-    render();
+    goToAddPageWithScanResult();
     return;
   }
 
@@ -1267,6 +1324,11 @@ function submitForm() {
   }
   if (!Number(shelfLifeValue) || Number(shelfLifeValue) <= 0) {
     state.formError = "请输入正确的保质期数值。";
+    render();
+    return;
+  }
+  if (hasDuplicateBatch({ name, productionDate, barcode })) {
+    state.formError = "该批次已存在，请不要重复添加。";
     render();
     return;
   }
