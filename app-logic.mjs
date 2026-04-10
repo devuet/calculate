@@ -27,6 +27,14 @@ function normalizeName(name) {
   return String(name || '').trim().toLocaleLowerCase();
 }
 
+function compareName(left, right) {
+  try {
+    return String(left || '').localeCompare(String(right || ''), 'zh-Hans-CN');
+  } catch {
+    return String(left || '').localeCompare(String(right || ''));
+  }
+}
+
 export function formatIsoDate(date) {
   const value = parseDateInput(date);
   const year = value.getFullYear();
@@ -161,7 +169,7 @@ export function groupProductsByName(batches, today = new Date()) {
     .sort((left, right) => {
       const leftDate = left.batches[0]?.expiryDate || '9999-12-31';
       const rightDate = right.batches[0]?.expiryDate || '9999-12-31';
-      return leftDate.localeCompare(rightDate) || left.name.localeCompare(right.name, 'zh-Hans-CN');
+      return leftDate.localeCompare(rightDate) || compareName(left.name, right.name);
     });
 }
 
@@ -199,20 +207,20 @@ export function sortProductGroups(groups, sortBy = 'urgency', today = new Date()
     const rightSummary = summarizeProductGroup(right, today);
 
     if (sortBy === 'name') {
-      return left.name.localeCompare(right.name, 'zh-Hans-CN');
+      return compareName(left.name, right.name);
     }
 
     if (sortBy === 'removalDate') {
       return (
         (leftSummary.nextBatch?.removalDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.removalDate || '9999-12-31') ||
-        left.name.localeCompare(right.name, 'zh-Hans-CN')
+        compareName(left.name, right.name)
       );
     }
 
     if (sortBy === 'expiryDate') {
       return (
         (leftSummary.nextBatch?.expiryDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.expiryDate || '9999-12-31') ||
-        left.name.localeCompare(right.name, 'zh-Hans-CN')
+        compareName(left.name, right.name)
       );
     }
 
@@ -220,7 +228,7 @@ export function sortProductGroups(groups, sortBy = 'urgency', today = new Date()
       statusRank[leftSummary.status] - statusRank[rightSummary.status] ||
       (leftSummary.nextBatch?.removalDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.removalDate || '9999-12-31') ||
       (leftSummary.nextBatch?.expiryDate || '9999-12-31').localeCompare(rightSummary.nextBatch?.expiryDate || '9999-12-31') ||
-      left.name.localeCompare(right.name, 'zh-Hans-CN')
+      compareName(left.name, right.name)
     );
   });
 }

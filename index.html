@@ -728,7 +728,8 @@
           const raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) return [];
           const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed : [];
+          if (!Array.isArray(parsed)) return [];
+          return parsed.filter((item) => item && item.name && item.productionDate && item.removalDate && item.expiryDate);
         } catch {
           return [];
         }
@@ -797,8 +798,20 @@
       }
 
       function render() {
-        const counts = getCounts();
-        const groups = getVisibleGroups();
+        let counts;
+        let groups;
+
+        try {
+          counts = getCounts();
+          groups = getVisibleGroups();
+        } catch (error) {
+          console.error('Render failed:', error);
+          localStorage.removeItem(STORAGE_KEY);
+          state.batches = [];
+          counts = getCounts();
+          groups = getVisibleGroups();
+        }
+
         const pageContent = state.page === 'manage'
           ? renderManagePage(counts, groups)
           : state.page === 'add'
@@ -1321,11 +1334,11 @@
 
       function escapeHtml(value) {
         return String(value || '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;')
-          .replaceAll("'", '&#39;');
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
       render();
