@@ -43,6 +43,28 @@ test('calculates monthly shelf life using natural month carry and inclusive expi
   assert.equal(formatIsoDate(result.removalDate), '2026-05-07');
 });
 
+test('handles end-of-month monthly shelf life without overflowing into the following month', () => {
+  const result = calculateBatchDates({
+    productionDate: '2025-01-31',
+    shelfLifeValue: 1,
+    shelfLifeUnit: 'months',
+  });
+
+  assert.equal(formatIsoDate(result.expiryDate), '2025-02-27');
+  assert.equal(formatIsoDate(result.removalDate), '2025-02-25');
+});
+
+test('handles leap-year month ends for monthly shelf life', () => {
+  const result = calculateBatchDates({
+    productionDate: '2024-02-29',
+    shelfLifeValue: 1,
+    shelfLifeUnit: 'months',
+  });
+
+  assert.equal(formatIsoDate(result.expiryDate), '2024-03-28');
+  assert.equal(formatIsoDate(result.removalDate), '2024-03-26');
+});
+
 test('classifies status as expired, remove-soon, and active', () => {
   const expired = getBatchStatus({
     removalDate: '2026-03-10',

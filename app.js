@@ -59,8 +59,12 @@ function addDays(date, days) {
 }
 
 function addMonthsInclusive(date, months) {
-  const shifted = new Date(date.getTime());
-  shifted.setMonth(shifted.getMonth() + months);
+  const targetMonth = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  targetMonth.setHours(0, 0, 0, 0);
+  const monthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+  monthEnd.setHours(0, 0, 0, 0);
+  const clampedDay = Math.min(date.getDate(), monthEnd.getDate());
+  const shifted = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), clampedDay);
   shifted.setHours(0, 0, 0, 0);
   return addDays(shifted, -1);
 }
