@@ -1053,6 +1053,51 @@ button {
   line-height: 1.5;
 }
 
+.scanner-device-panel {
+  margin-top: 12px;
+  border-top: 1px solid #eef2f8;
+  padding-top: 12px;
+}
+
+.scanner-device-title {
+  color: #7a879d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.scanner-device-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.scanner-device-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f7f9fd;
+  color: #5e6b82;
+  font-size: 12px;
+}
+
+.scanner-device-item.active {
+  background: #edf3ff;
+  color: var(--blue);
+}
+
+.scanner-device-badge {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(47, 107, 255, 0.12);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .empty-state {
   min-height: 50vh;
   display: grid;

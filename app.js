@@ -59,6 +59,8 @@ function createScannerState() {
     open: false,
     status: "idle",
     message: "",
+    devices: [],
+    selectedDeviceId: "",
     stream: null,
     detector: null,
     controls: null,
@@ -288,6 +290,19 @@ async function getPreferredBackCameraId() {
   if (!videoInputs.length) return "";
   const sorted = [...videoInputs].sort((left, right) => scoreCameraDevice(right) - scoreCameraDevice(left));
   return sorted[0]?.deviceId || "";
+}
+
+async function loadScannerDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    state.scanner.devices = [];
+    return;
+  }
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    state.scanner.devices = devices.filter((device) => device.kind === "videoinput");
+  } catch {
+    state.scanner.devices = [];
+  }
 }
 
 async function optimizeScannerTrack(stream) {
@@ -743,6 +758,24 @@ function renderScannerSheet() {
           <div class="scanner-frame"></div>
         </div>
         <div class="scanner-status">${escapeHtml(state.scanner.message || "请把条形码对准扫描框")}</div>
+        ${renderScannerDevices()}
+      </div>
+    </div>
+  `;
+}
+
+function renderScannerDevices() {
+  if (!state.scanner.devices.length) return "";
+  return `
+    <div class="scanner-device-panel">
+      <div class="scanner-device-title">可用镜头</div>
+      <div class="scanner-device-list">
+        ${state.scanner.devices.map((device, index) => `
+          <div class="scanner-device-item ${device.deviceId === state.scanner.selectedDeviceId ? "active" : ""}">
+            <span>${escapeHtml(device.label || `镜头 ${index + 1}`)}</span>
+            ${device.deviceId === state.scanner.selectedDeviceId ? '<span class="scanner-device-badge">当前</span>' : ""}
+          </div>
+        `).join("")}
       </div>
     </div>
   `;
@@ -1029,6 +1062,7 @@ async function startScanner(video) {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
+    await loadScannerDevices();
     let stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
     const preferredDeviceId = await getPreferredBackCameraId();
     const currentTrack = stream.getVideoTracks()[0];
@@ -1038,6 +1072,8 @@ async function startScanner(video) {
       stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints(preferredDeviceId));
     }
     await optimizeScannerTrack(stream);
+    state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || preferredDeviceId || currentDeviceId || "";
+    await loadScannerDevices();
     state.scanner.stream = stream;
     state.scanner.detector = new window.BarcodeDetector({
       formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
@@ -1098,14 +1134,13 @@ async function startZxingScanner(video) {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
+    await loadScannerDevices();
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
     const preferredDeviceId = await getPreferredBackCameraId();
-    let localControlsRef = null;
     const controls = await reader.decodeFromConstraints(
       buildScannerConstraints(preferredDeviceId).video ? buildScannerConstraints(preferredDeviceId) : buildScannerConstraints(),
       video,
       (result, error, localControls) => {
-        localControlsRef = localControlsRef || localControls;
         if (result?.getText()) {
           if (localControls?.stop) localControls.stop();
           state.scanner.controls = null;
@@ -1118,6 +1153,8 @@ async function startZxingScanner(video) {
     const stream = video.srcObject instanceof MediaStream ? video.srcObject : null;
     if (stream) {
       await optimizeScannerTrack(stream);
+      state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || preferredDeviceId || "";
+      await loadScannerDevices();
     }
     state.scanner.controls = controls;
     state.scanner.backend = "zxing";
