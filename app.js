@@ -1212,14 +1212,15 @@ function bindNativeScanner(video) {
   }
 
   const preferredDeviceId = state.scanner.hasManualDevicePreference ? (state.scanner.selectedDeviceId || "") : "";
-  startScanner(video, preferredDeviceId);
+  startScanner(video, preferredDeviceId, { optimizeTrack: Boolean(preferredDeviceId) });
 }
 
-async function startScanner(video, preferredDeviceId = "") {
+async function startScanner(video, preferredDeviceId = "", options = {}) {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
     refreshScannerMeta();
+    const { optimizeTrack = false } = options;
     const desiredDeviceId = preferredDeviceId || "";
     let stream;
     try {
@@ -1229,10 +1230,12 @@ async function startScanner(video, preferredDeviceId = "") {
     }
     state.scanner.stream = stream;
     attachScannerStream(video);
-    await optimizeScannerTrack(stream);
+    if (optimizeTrack) {
+      await optimizeScannerTrack(stream);
+    }
     state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || desiredDeviceId || "";
-    await loadScannerDevices();
     if (preferredDeviceId) {
+      await loadScannerDevices();
       state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
       const selectedDevice = state.scanner.devices.find((device) => device.deviceId === state.scanner.selectedDeviceId);
       state.scanner.preferredDeviceLabel = selectedDevice?.label || state.scanner.preferredDeviceLabel || "";
@@ -1298,14 +1301,15 @@ function bindZxingScanner(video) {
   }
 
   const preferredDeviceId = state.scanner.hasManualDevicePreference ? (state.scanner.selectedDeviceId || "") : "";
-  startZxingScanner(video, preferredDeviceId);
+  startZxingScanner(video, preferredDeviceId, { optimizeTrack: Boolean(preferredDeviceId) });
 }
 
-async function startZxingScanner(video, preferredDeviceId = "") {
+async function startZxingScanner(video, preferredDeviceId = "", options = {}) {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
     refreshScannerMeta();
+    const { optimizeTrack = false } = options;
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
     const desiredDeviceId = preferredDeviceId || "";
     const controls = await reader.decodeFromConstraints(
@@ -1323,10 +1327,12 @@ async function startZxingScanner(video, preferredDeviceId = "") {
     );
     const stream = video.srcObject instanceof MediaStream ? video.srcObject : null;
     if (stream) {
-      await optimizeScannerTrack(stream);
+      if (optimizeTrack) {
+        await optimizeScannerTrack(stream);
+      }
       state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || desiredDeviceId || "";
-      await loadScannerDevices();
       if (preferredDeviceId) {
+        await loadScannerDevices();
         state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
         const selectedDevice = state.scanner.devices.find((device) => device.deviceId === state.scanner.selectedDeviceId);
         state.scanner.preferredDeviceLabel = selectedDevice?.label || state.scanner.preferredDeviceLabel || "";
@@ -1628,6 +1634,9 @@ function handleAction(action, target) {
 
   if (action === "toggle-scanner-devices") {
     state.scanner.devicePickerVisible = !state.scanner.devicePickerVisible;
+    if (state.scanner.devicePickerVisible) {
+      loadScannerDevices().then(() => refreshScannerMeta());
+    }
     render();
     return;
   }
