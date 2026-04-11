@@ -290,6 +290,30 @@ async function getPreferredBackCameraId() {
   return sorted[0]?.deviceId || "";
 }
 
+async function optimizeScannerTrack(stream) {
+  const track = stream?.getVideoTracks?.()[0];
+  if (!track?.getCapabilities || !track.applyConstraints) return;
+
+  try {
+    const capabilities = track.getCapabilities();
+    const advanced = [];
+
+    if (typeof capabilities.zoom?.min === "number") {
+      advanced.push({ zoom: capabilities.zoom.min });
+    }
+
+    if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes("continuous")) {
+      advanced.push({ focusMode: "continuous" });
+    }
+
+    if (advanced.length) {
+      await track.applyConstraints({ advanced });
+    }
+  } catch {
+    // Some Android browsers expose capabilities but reject constraints; ignore and continue.
+  }
+}
+
 function findTemplateByBarcode(barcode) {
   const normalized = normalizeBarcode(barcode);
   return state.templates.find((item) => item.barcode === normalized) || null;
@@ -1013,6 +1037,7 @@ async function startScanner(video) {
       stream.getTracks().forEach((track) => track.stop());
       stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints(preferredDeviceId));
     }
+    await optimizeScannerTrack(stream);
     state.scanner.stream = stream;
     state.scanner.detector = new window.BarcodeDetector({
       formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
@@ -1075,10 +1100,12 @@ async function startZxingScanner(video) {
     state.scanner.message = "正在打开摄像头...";
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
     const preferredDeviceId = await getPreferredBackCameraId();
+    let localControlsRef = null;
     const controls = await reader.decodeFromConstraints(
       buildScannerConstraints(preferredDeviceId).video ? buildScannerConstraints(preferredDeviceId) : buildScannerConstraints(),
       video,
       (result, error, localControls) => {
+        localControlsRef = localControlsRef || localControls;
         if (result?.getText()) {
           if (localControls?.stop) localControls.stop();
           state.scanner.controls = null;
@@ -1088,6 +1115,10 @@ async function startZxingScanner(video) {
         }
       },
     );
+    const stream = video.srcObject instanceof MediaStream ? video.srcObject : null;
+    if (stream) {
+      await optimizeScannerTrack(stream);
+    }
     state.scanner.controls = controls;
     state.scanner.backend = "zxing";
     state.scanner.status = "scanning";
