@@ -277,6 +277,8 @@ function buildScannerConstraints(deviceId) {
 function scoreCameraDevice(device) {
   const label = String(device.label || "").toLowerCase();
   let score = 0;
+  if (/^camera\s*0$/.test(label)) score += 160;
+  if (/^camera\s*[1-9]\d*$/.test(label)) score += 40;
   if (/(back|rear|environment)/.test(label)) score += 100;
   if (/(front|user|selfie)/.test(label)) score -= 120;
   if (/(wide|ultra|0\.5|macro|depth|tele|zoom|periscope|portrait)/.test(label)) score -= 60;
