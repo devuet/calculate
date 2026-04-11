@@ -655,7 +655,7 @@ function renderManagePage(counts, records) {
       </div>
       ${state.searchVisible ? `
         <div class="search-panel">
-          <input class="search-input" type="search" placeholder="搜索商品名称" value="${escapeHtml(state.search)}" data-input="search" />
+          <input class="search-input" type="search" enterkeyhint="search" placeholder="搜索商品名称" value="${escapeHtml(state.search)}" data-input="search" />
         </div>
       ` : ""}
       ${state.filterPanelVisible ? renderCategoryFilterPanel() : ""}
@@ -750,7 +750,7 @@ function renderAddPage() {
         ${state.form.scanHint ? `<div class="helper-text" style="margin-top:12px;">${escapeHtml(state.form.scanHint)}</div>` : ""}
         <div class="field">
           <label class="field-label" for="item-name">商品名称</label>
-          <input id="item-name" class="text-field" type="text" maxlength="30" placeholder="例如：牛奶、面包、感冒药" value="${escapeHtml(state.form.name)}" data-form-input="name" />
+          <input id="item-name" class="text-field" type="text" enterkeyhint="done" maxlength="30" placeholder="例如：牛奶、面包、感冒药" value="${escapeHtml(state.form.name)}" data-form-input="name" />
         </div>
         <div class="field">
           <div class="field-label">分类</div>
@@ -1057,6 +1057,12 @@ function bindInputs() {
       state.search = event.target.value;
       refreshManageList();
     });
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.target.blur();
+      }
+    });
   }
 
   app.querySelectorAll("[data-form-input]").forEach((input) => {
@@ -1066,6 +1072,13 @@ function bindInputs() {
     state.formWarning = "";
     refreshFormPreview();
   });
+    input.addEventListener("keydown", (event) => {
+      const field = event.target.dataset.formInput;
+      if (event.key !== "Enter") return;
+      if (field !== "name") return;
+      event.preventDefault();
+      event.target.blur();
+    });
   });
 
   app.querySelectorAll("[data-calc-input]").forEach((input) => {
