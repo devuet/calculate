@@ -990,7 +990,11 @@ button {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 20px 14px calc(20px + env(safe-area-inset-bottom, 0px));
+  padding:
+    20px
+    calc(14px + env(safe-area-inset-right, 0px))
+    calc(20px + env(safe-area-inset-bottom, 0px))
+    calc(14px + env(safe-area-inset-left, 0px));
 }
 
 .scanner-sheet {
@@ -998,7 +1002,7 @@ button {
   max-height: min(78vh, 720px);
   border-radius: 28px;
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
-  padding: 18px 16px 16px;
+  padding: 18px 18px 16px 16px;
   box-shadow: 0 24px 60px rgba(16, 24, 40, 0.2);
   overflow: auto;
 }
@@ -1010,10 +1014,17 @@ button {
   gap: 12px;
 }
 
+.scanner-sheet-head > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .scanner-head-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
+  padding-right: 2px;
 }
 
 .scanner-title {

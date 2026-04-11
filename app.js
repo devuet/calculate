@@ -383,6 +383,13 @@ function resolvePreferredDeviceIdFromDevices(devices) {
   return "";
 }
 
+function isAppleMobileBrowser() {
+  const userAgent = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  return /iPhone|iPad|iPod/i.test(userAgent)
+    || (/Mac/i.test(platform) && typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1);
+}
+
 async function optimizeScannerTrack(stream) {
   const track = stream?.getVideoTracks?.()[0];
   if (!track?.getCapabilities || !track.applyConstraints) return;
@@ -391,7 +398,7 @@ async function optimizeScannerTrack(stream) {
     const capabilities = track.getCapabilities();
     const advanced = [];
 
-    if (typeof capabilities.zoom?.min === "number") {
+    if (!isAppleMobileBrowser() && typeof capabilities.zoom?.min === "number") {
       advanced.push({ zoom: capabilities.zoom.min });
     }
 
