@@ -391,6 +391,7 @@ function isAppleMobileBrowser() {
 }
 
 async function optimizeScannerTrack(stream) {
+  if (isAppleMobileBrowser()) return;
   const track = stream?.getVideoTracks?.()[0];
   if (!track?.getCapabilities || !track.applyConstraints) return;
 
@@ -398,7 +399,7 @@ async function optimizeScannerTrack(stream) {
     const capabilities = track.getCapabilities();
     const advanced = [];
 
-    if (!isAppleMobileBrowser() && typeof capabilities.zoom?.min === "number") {
+    if (typeof capabilities.zoom?.min === "number") {
       advanced.push({ zoom: capabilities.zoom.min });
     }
 
@@ -851,6 +852,10 @@ function renderScannerSheet() {
           </div>
         </div>
         <div class="scanner-preview">
+          <div class="scanner-preview-loading" data-scanner-loading aria-hidden="true">
+            <div class="scanner-loading-dot"></div>
+            <span>正在连接摄像头</span>
+          </div>
           <video class="scanner-video" data-scanner-video autoplay playsinline muted></video>
           <div class="scanner-frame"></div>
         </div>
@@ -1254,6 +1259,12 @@ function attachScannerStream(video) {
   if (video.srcObject !== state.scanner.stream) {
     video.srcObject = state.scanner.stream;
   }
+  video.onloadeddata = () => {
+    const loadingNode = app.querySelector("[data-scanner-loading]");
+    if (loadingNode) {
+      loadingNode.classList.add("hidden");
+    }
+  };
   video.play().catch(() => {});
 }
 

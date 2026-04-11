@@ -1046,7 +1046,7 @@ button {
   aspect-ratio: 1 / 0.8;
   border-radius: 24px;
   overflow: hidden;
-  background: linear-gradient(180deg, #eff4ff 0%, #dfe9ff 100%);
+  background: linear-gradient(180deg, #d8e2f7 0%, #c7d3ed 100%);
 }
 
 .scanner-video {
@@ -1054,6 +1054,34 @@ button {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.scanner-preview-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(216, 226, 247, 0.96) 0%, rgba(199, 211, 237, 0.96) 100%);
+  color: #5f6b82;
+  font-size: 13px;
+  transition: opacity 160ms ease;
+}
+
+.scanner-preview-loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scanner-loading-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(47, 107, 255, 0.7);
+  box-shadow: 0 0 0 8px rgba(47, 107, 255, 0.12);
 }
 
 .scanner-frame {
