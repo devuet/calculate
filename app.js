@@ -1,6 +1,7 @@
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const STORAGE_KEY = "shelf-life-manager-v2";
 const TEMPLATE_STORAGE_KEY = "shelf-life-templates-v1";
+const SCANNER_PREFERENCE_STORAGE_KEY = "scanner-preferred-device-v1";
 const ARCHIVE_RETENTION_DAYS = 3;
 
 const categories = [
@@ -55,13 +56,16 @@ function createDefaultForm() {
 }
 
 function createScannerState() {
+  const preferredDeviceId = loadPreferredScannerDeviceId();
   return {
     open: false,
     status: "idle",
     message: "",
     devices: [],
     deviceIndex: -1,
-    selectedDeviceId: "",
+    selectedDeviceId: preferredDeviceId,
+    preferredDeviceId,
+    devicePickerVisible: false,
     stream: null,
     detector: null,
     controls: null,
@@ -225,6 +229,26 @@ function loadTemplates() {
   }
 }
 
+function loadPreferredScannerDeviceId() {
+  try {
+    return localStorage.getItem(SCANNER_PREFERENCE_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function savePreferredScannerDeviceId(deviceId) {
+  try {
+    if (!deviceId) {
+      localStorage.removeItem(SCANNER_PREFERENCE_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(SCANNER_PREFERENCE_STORAGE_KEY, deviceId);
+  } catch {
+    // Ignore storage failures and keep scanning available.
+  }
+}
+
 function saveBatches() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.batches));
 }
@@ -377,6 +401,7 @@ function upsertTemplate(template) {
 }
 
 function resetScanner({ keepMessage = false } = {}) {
+  const preferredDeviceId = state.scanner.preferredDeviceId || loadPreferredScannerDeviceId();
   if (state.scanner.timerId) {
     clearTimeout(state.scanner.timerId);
   }
@@ -388,6 +413,8 @@ function resetScanner({ keepMessage = false } = {}) {
   }
   state.scanner = {
     ...createScannerState(),
+    selectedDeviceId: preferredDeviceId,
+    preferredDeviceId,
     message: keepMessage ? state.scanner.message : "",
   };
 }
@@ -774,6 +801,7 @@ function renderScannerSheet() {
             <div class="scanner-subtitle">优先识别商品条形码，查到模板后自动填充。</div>
           </div>
           <div class="scanner-head-actions">
+            <button class="header-action-button" data-action="toggle-scanner-devices">${state.scanner.devicePickerVisible ? "收起镜头" : "切换摄像头"}</button>
             <button class="icon-button" data-action="close-scanner" aria-label="关闭">✕</button>
           </div>
         </div>
@@ -789,7 +817,15 @@ function renderScannerSheet() {
 }
 
 function renderScannerDevices() {
-  if (!state.scanner.devices.length) return "";
+  if (!state.scanner.devicePickerVisible) return "";
+  if (!state.scanner.devices.length) {
+    return `
+      <div class="scanner-device-panel">
+        <div class="scanner-device-title">可用镜头</div>
+        <div class="scanner-device-empty">暂时还没拿到镜头列表，请稍等一下。</div>
+      </div>
+    `;
+  }
   return `
     <div class="scanner-device-panel">
       <div class="scanner-device-title">可用镜头</div>
@@ -1104,17 +1140,17 @@ async function startScanner(video, preferredDeviceId = "") {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
     refreshScannerMeta();
-    let stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
-    await loadScannerDevices();
-    const desiredDeviceId = preferredDeviceId || await getPreferredBackCameraId();
-    const currentTrack = stream.getVideoTracks()[0];
-    const currentDeviceId = currentTrack?.getSettings?.().deviceId || "";
-    if (desiredDeviceId && desiredDeviceId !== currentDeviceId) {
-      stream.getTracks().forEach((track) => track.stop());
+    const desiredDeviceId = preferredDeviceId || state.scanner.preferredDeviceId || "";
+    let stream;
+    try {
       stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints(desiredDeviceId));
+    } catch {
+      stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
     }
     await optimizeScannerTrack(stream);
-    state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || desiredDeviceId || currentDeviceId || "";
+    state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || desiredDeviceId || "";
+    state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
+    if (state.scanner.selectedDeviceId) savePreferredScannerDeviceId(state.scanner.selectedDeviceId);
     await loadScannerDevices();
     state.scanner.stream = stream;
     state.scanner.detector = new window.BarcodeDetector({
@@ -1179,13 +1215,7 @@ async function startZxingScanner(video, preferredDeviceId = "") {
     state.scanner.message = "正在打开摄像头...";
     refreshScannerMeta();
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
-    let desiredDeviceId = preferredDeviceId;
-    if (!desiredDeviceId) {
-      const warmupStream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
-      warmupStream.getTracks().forEach((track) => track.stop());
-      await loadScannerDevices();
-      desiredDeviceId = await getPreferredBackCameraId();
-    }
+    const desiredDeviceId = preferredDeviceId || state.scanner.preferredDeviceId || "";
     const controls = await reader.decodeFromConstraints(
       buildScannerConstraints(desiredDeviceId),
       video,
@@ -1203,6 +1233,8 @@ async function startZxingScanner(video, preferredDeviceId = "") {
     if (stream) {
       await optimizeScannerTrack(stream);
       state.scanner.selectedDeviceId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || desiredDeviceId || "";
+      state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
+      if (state.scanner.selectedDeviceId) savePreferredScannerDeviceId(state.scanner.selectedDeviceId);
       await loadScannerDevices();
     }
     state.scanner.controls = controls;
@@ -1487,12 +1519,15 @@ function handleAction(action, target) {
     state.scanner.open = true;
     state.scanner.status = "idle";
     state.scanner.message = "请把条形码对准扫描框";
+    state.scanner.devicePickerVisible = false;
+    state.scanner.selectedDeviceId = state.scanner.preferredDeviceId || loadPreferredScannerDeviceId();
     render();
     return;
   }
 
-  if (action === "switch-scanner-camera") {
-    switchScannerCamera();
+  if (action === "toggle-scanner-devices") {
+    state.scanner.devicePickerVisible = !state.scanner.devicePickerVisible;
+    render();
     return;
   }
 
@@ -1502,6 +1537,9 @@ function handleAction(action, target) {
     resetScanner({ keepMessage: true });
     state.scanner.open = true;
     state.scanner.selectedDeviceId = deviceId;
+    state.scanner.preferredDeviceId = deviceId;
+    state.scanner.devicePickerVisible = false;
+    savePreferredScannerDeviceId(deviceId);
     state.scanner.message = "正在切换镜头...";
     render();
     return;

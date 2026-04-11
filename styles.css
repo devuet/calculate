@@ -1074,6 +1074,15 @@ button {
   letter-spacing: 0.04em;
 }
 
+.scanner-device-empty {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f7f9fd;
+  color: #7a879d;
+  font-size: 12px;
+}
+
 .scanner-device-list {
   margin-top: 8px;
   display: grid;
