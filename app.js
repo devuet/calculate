@@ -286,11 +286,27 @@ function scoreCameraDevice(device) {
   return score;
 }
 
+function extractCameraNumber(device) {
+  const match = String(device.label || "").toLowerCase().match(/camera\s*(\d+)/);
+  if (!match) return Number.POSITIVE_INFINITY;
+  return Number(match[1]);
+}
+
 async function getPreferredBackCameraId() {
   if (!navigator.mediaDevices?.enumerateDevices) return "";
   const devices = await navigator.mediaDevices.enumerateDevices();
   const videoInputs = devices.filter((device) => device.kind === "videoinput");
   if (!videoInputs.length) return "";
+
+  const numberedCameras = videoInputs
+    .map((device) => ({ device, number: extractCameraNumber(device) }))
+    .filter((item) => Number.isFinite(item.number))
+    .sort((left, right) => left.number - right.number);
+
+  if (numberedCameras.length) {
+    return numberedCameras[0].device.deviceId || "";
+  }
+
   const sorted = [...videoInputs].sort((left, right) => scoreCameraDevice(right) - scoreCameraDevice(left));
   return sorted[0]?.deviceId || "";
 }
@@ -758,7 +774,6 @@ function renderScannerSheet() {
             <div class="scanner-subtitle">优先识别商品条形码，查到模板后自动填充。</div>
           </div>
           <div class="scanner-head-actions">
-            <button class="header-action-button" data-action="switch-scanner-camera">切换镜头</button>
             <button class="icon-button" data-action="close-scanner" aria-label="关闭">✕</button>
           </div>
         </div>
@@ -780,10 +795,15 @@ function renderScannerDevices() {
       <div class="scanner-device-title">可用镜头</div>
       <div class="scanner-device-list">
         ${state.scanner.devices.map((device, index) => `
-          <div class="scanner-device-item ${device.deviceId === state.scanner.selectedDeviceId ? "active" : ""}">
+          <button
+            class="scanner-device-item ${device.deviceId === state.scanner.selectedDeviceId ? "active" : ""}"
+            data-action="select-scanner-camera"
+            data-device-id="${escapeHtml(device.deviceId)}"
+            type="button"
+          >
             <span>${escapeHtml(device.label || `镜头 ${index + 1}`)}</span>
             ${device.deviceId === state.scanner.selectedDeviceId ? '<span class="scanner-device-badge">当前</span>' : ""}
-          </div>
+          </button>
         `).join("")}
       </div>
     </div>
@@ -1071,8 +1091,8 @@ async function startScanner(video, preferredDeviceId = "") {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
-    await loadScannerDevices();
     let stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
+    await loadScannerDevices();
     const desiredDeviceId = preferredDeviceId || await getPreferredBackCameraId();
     const currentTrack = stream.getVideoTracks()[0];
     const currentDeviceId = currentTrack?.getSettings?.().deviceId || "";
@@ -1143,9 +1163,14 @@ async function startZxingScanner(video, preferredDeviceId = "") {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
-    await loadScannerDevices();
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
-    const desiredDeviceId = preferredDeviceId || await getPreferredBackCameraId();
+    let desiredDeviceId = preferredDeviceId;
+    if (!desiredDeviceId) {
+      const warmupStream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
+      warmupStream.getTracks().forEach((track) => track.stop());
+      await loadScannerDevices();
+      desiredDeviceId = await getPreferredBackCameraId();
+    }
     const controls = await reader.decodeFromConstraints(
       buildScannerConstraints(desiredDeviceId),
       video,
@@ -1452,6 +1477,17 @@ function handleAction(action, target) {
 
   if (action === "switch-scanner-camera") {
     switchScannerCamera();
+    return;
+  }
+
+  if (action === "select-scanner-camera") {
+    const deviceId = target.dataset.deviceId || "";
+    if (!deviceId || deviceId === state.scanner.selectedDeviceId) return;
+    resetScanner({ keepMessage: true });
+    state.scanner.open = true;
+    state.scanner.selectedDeviceId = deviceId;
+    state.scanner.message = "正在切换镜头...";
+    render();
     return;
   }
 
