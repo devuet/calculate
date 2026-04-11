@@ -66,8 +66,8 @@ function createScannerState() {
     selectedDeviceId: preferredCameraPreference.deviceId,
     preferredDeviceId: preferredCameraPreference.deviceId,
     preferredDeviceLabel: preferredCameraPreference.label,
+    hasManualDevicePreference: preferredCameraPreference.manual,
     devicePickerVisible: false,
-    autoSwitchAttempted: false,
     stream: null,
     detector: null,
     controls: null,
@@ -234,21 +234,22 @@ function loadTemplates() {
 function loadPreferredScannerPreference() {
   try {
     const raw = localStorage.getItem(SCANNER_PREFERENCE_STORAGE_KEY);
-    if (!raw) return { deviceId: "", label: "" };
+    if (!raw) return { deviceId: "", label: "", manual: false };
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object") {
       return {
         deviceId: String(parsed.deviceId || ""),
         label: String(parsed.label || ""),
+        manual: Boolean(parsed.manual),
       };
     }
-    return { deviceId: String(raw || ""), label: "" };
+    return { deviceId: String(raw || ""), label: "", manual: false };
   } catch {
-    return { deviceId: "", label: "" };
+    return { deviceId: "", label: "", manual: false };
   }
 }
 
-function savePreferredScannerDevice(deviceId, label = "") {
+function savePreferredScannerDevice(deviceId, label = "", manual = false) {
   try {
     if (!deviceId) {
       localStorage.removeItem(SCANNER_PREFERENCE_STORAGE_KEY);
@@ -257,6 +258,7 @@ function savePreferredScannerDevice(deviceId, label = "") {
     localStorage.setItem(SCANNER_PREFERENCE_STORAGE_KEY, JSON.stringify({
       deviceId,
       label,
+      manual,
     }));
   } catch {
     // Ignore storage failures and keep scanning available.
@@ -434,6 +436,7 @@ function resetScanner({ keepMessage = false } = {}) {
   const preferredCameraPreference = {
     deviceId: state.scanner.preferredDeviceId || loadPreferredScannerPreference().deviceId,
     label: state.scanner.preferredDeviceLabel || loadPreferredScannerPreference().label,
+    manual: state.scanner.hasManualDevicePreference ?? loadPreferredScannerPreference().manual,
   };
   if (state.scanner.timerId) {
     clearTimeout(state.scanner.timerId);
@@ -449,6 +452,7 @@ function resetScanner({ keepMessage = false } = {}) {
     selectedDeviceId: preferredCameraPreference.deviceId,
     preferredDeviceId: preferredCameraPreference.deviceId,
     preferredDeviceLabel: preferredCameraPreference.label,
+    hasManualDevicePreference: preferredCameraPreference.manual,
     message: keepMessage ? state.scanner.message : "",
   };
 }
@@ -892,24 +896,6 @@ function refreshScannerMeta() {
   }
 }
 
-function maybeAutoSwitchScannerDevice(currentDeviceId) {
-  if (state.scanner.autoSwitchAttempted) return;
-  const preferredDeviceId = resolvePreferredDeviceIdFromDevices(state.scanner.devices);
-  if (!preferredDeviceId) return;
-  if (!currentDeviceId || preferredDeviceId === currentDeviceId) return;
-
-  state.scanner.autoSwitchAttempted = true;
-  window.setTimeout(() => {
-    if (!state.scanner.open) return;
-    resetScanner({ keepMessage: true });
-    state.scanner.open = true;
-    state.scanner.selectedDeviceId = preferredDeviceId;
-    state.scanner.preferredDeviceId = preferredDeviceId;
-    state.scanner.message = "正在切换到常用摄像头...";
-    render();
-  }, 60);
-}
-
 function renderScanResultSheet() {
   if (!state.scanResult) return "";
   return renderBarcodeRecordsSheet();
@@ -1213,7 +1199,8 @@ function bindNativeScanner(video) {
     return;
   }
 
-  startScanner(video, state.scanner.selectedDeviceId || "");
+  const preferredDeviceId = state.scanner.hasManualDevicePreference ? (state.scanner.selectedDeviceId || "") : "";
+  startScanner(video, preferredDeviceId);
 }
 
 async function startScanner(video, preferredDeviceId = "") {
@@ -1237,9 +1224,8 @@ async function startScanner(video, preferredDeviceId = "") {
       state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
       const selectedDevice = state.scanner.devices.find((device) => device.deviceId === state.scanner.selectedDeviceId);
       state.scanner.preferredDeviceLabel = selectedDevice?.label || state.scanner.preferredDeviceLabel || "";
-      if (state.scanner.selectedDeviceId) savePreferredScannerDevice(state.scanner.selectedDeviceId, state.scanner.preferredDeviceLabel);
-    } else {
-      maybeAutoSwitchScannerDevice(state.scanner.selectedDeviceId);
+      state.scanner.hasManualDevicePreference = true;
+      if (state.scanner.selectedDeviceId) savePreferredScannerDevice(state.scanner.selectedDeviceId, state.scanner.preferredDeviceLabel, true);
     }
     state.scanner.detector = new window.BarcodeDetector({
       formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
@@ -1293,7 +1279,8 @@ function bindZxingScanner(video) {
     return;
   }
 
-  startZxingScanner(video, state.scanner.selectedDeviceId || "");
+  const preferredDeviceId = state.scanner.hasManualDevicePreference ? (state.scanner.selectedDeviceId || "") : "";
+  startZxingScanner(video, preferredDeviceId);
 }
 
 async function startZxingScanner(video, preferredDeviceId = "") {
@@ -1325,9 +1312,8 @@ async function startZxingScanner(video, preferredDeviceId = "") {
         state.scanner.preferredDeviceId = state.scanner.selectedDeviceId || state.scanner.preferredDeviceId;
         const selectedDevice = state.scanner.devices.find((device) => device.deviceId === state.scanner.selectedDeviceId);
         state.scanner.preferredDeviceLabel = selectedDevice?.label || state.scanner.preferredDeviceLabel || "";
-        if (state.scanner.selectedDeviceId) savePreferredScannerDevice(state.scanner.selectedDeviceId, state.scanner.preferredDeviceLabel);
-      } else {
-        maybeAutoSwitchScannerDevice(state.scanner.selectedDeviceId);
+        state.scanner.hasManualDevicePreference = true;
+        if (state.scanner.selectedDeviceId) savePreferredScannerDevice(state.scanner.selectedDeviceId, state.scanner.preferredDeviceLabel, true);
       }
     }
     state.scanner.controls = controls;
@@ -1613,11 +1599,11 @@ function handleAction(action, target) {
     state.scanner.status = "idle";
     state.scanner.message = "请把条形码对准扫描框";
     state.scanner.devicePickerVisible = false;
-    state.scanner.autoSwitchAttempted = false;
     const preferredCameraPreference = loadPreferredScannerPreference();
-    state.scanner.selectedDeviceId = "";
+    state.scanner.selectedDeviceId = preferredCameraPreference.manual ? preferredCameraPreference.deviceId : "";
     state.scanner.preferredDeviceId = preferredCameraPreference.deviceId;
     state.scanner.preferredDeviceLabel = preferredCameraPreference.label;
+    state.scanner.hasManualDevicePreference = preferredCameraPreference.manual;
     render();
     return;
   }
@@ -1634,12 +1620,12 @@ function handleAction(action, target) {
     const selectedDevice = state.scanner.devices.find((device) => device.deviceId === deviceId);
     resetScanner({ keepMessage: true });
     state.scanner.open = true;
-    state.scanner.autoSwitchAttempted = true;
     state.scanner.selectedDeviceId = deviceId;
     state.scanner.preferredDeviceId = deviceId;
     state.scanner.preferredDeviceLabel = selectedDevice?.label || "";
+    state.scanner.hasManualDevicePreference = true;
     state.scanner.devicePickerVisible = false;
-    savePreferredScannerDevice(deviceId, state.scanner.preferredDeviceLabel);
+    savePreferredScannerDevice(deviceId, state.scanner.preferredDeviceLabel, true);
     state.scanner.message = "正在切换镜头...";
     render();
     return;
