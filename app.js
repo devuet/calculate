@@ -781,8 +781,8 @@ function renderScannerSheet() {
           <video class="scanner-video" data-scanner-video autoplay playsinline muted></video>
           <div class="scanner-frame"></div>
         </div>
-        <div class="scanner-status">${escapeHtml(state.scanner.message || "请把条形码对准扫描框")}</div>
-        ${renderScannerDevices()}
+        <div class="scanner-status" data-scanner-status>${escapeHtml(state.scanner.message || "请把条形码对准扫描框")}</div>
+        <div data-scanner-devices>${renderScannerDevices()}</div>
       </div>
     </div>
   `;
@@ -808,6 +808,18 @@ function renderScannerDevices() {
       </div>
     </div>
   `;
+}
+
+function refreshScannerMeta() {
+  const statusNode = app.querySelector("[data-scanner-status]");
+  if (statusNode) {
+    statusNode.textContent = state.scanner.message || "请把条形码对准扫描框";
+  }
+
+  const devicesNode = app.querySelector("[data-scanner-devices]");
+  if (devicesNode) {
+    devicesNode.innerHTML = renderScannerDevices();
+  }
 }
 
 function renderScanResultSheet() {
@@ -1091,6 +1103,7 @@ async function startScanner(video, preferredDeviceId = "") {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
+    refreshScannerMeta();
     let stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
     await loadScannerDevices();
     const desiredDeviceId = preferredDeviceId || await getPreferredBackCameraId();
@@ -1110,6 +1123,7 @@ async function startScanner(video, preferredDeviceId = "") {
     state.scanner.backend = "native";
     state.scanner.status = "scanning";
     state.scanner.message = "请把条形码放进扫描框";
+    refreshScannerMeta();
     attachScannerStream(video);
     queueScan(video);
   } catch (error) {
@@ -1163,6 +1177,7 @@ async function startZxingScanner(video, preferredDeviceId = "") {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
+    refreshScannerMeta();
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
     let desiredDeviceId = preferredDeviceId;
     if (!desiredDeviceId) {
@@ -1194,6 +1209,7 @@ async function startZxingScanner(video, preferredDeviceId = "") {
     state.scanner.backend = "zxing";
     state.scanner.status = "scanning";
     state.scanner.message = "请把条形码放进扫描框";
+    refreshScannerMeta();
   } catch {
     state.scanner.status = "error";
     state.scanner.message = "无法打开摄像头，请检查浏览器权限。";
