@@ -1262,13 +1262,31 @@ function attachScannerStream(video) {
   if (video.srcObject !== state.scanner.stream) {
     video.srcObject = state.scanner.stream;
   }
-  video.onloadeddata = () => {
+  const hideScannerLoading = () => {
     const loadingNode = app.querySelector("[data-scanner-loading]");
     if (loadingNode) {
       loadingNode.classList.add("hidden");
     }
   };
-  video.play().catch(() => {});
+
+  video.onloadeddata = hideScannerLoading;
+  video.onloadedmetadata = hideScannerLoading;
+  video.oncanplay = hideScannerLoading;
+  video.onplaying = hideScannerLoading;
+
+  if (video.readyState >= 2) {
+    hideScannerLoading();
+  }
+
+  video.play()
+    .then(() => {
+      window.requestAnimationFrame(() => {
+        if (video.readyState >= 2) {
+          hideScannerLoading();
+        }
+      });
+    })
+    .catch(() => {});
 }
 
 function queueScan(video) {
