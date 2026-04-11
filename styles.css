@@ -1262,18 +1262,25 @@ button {
 
 .fab-layer {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  width: min(100%, 420px);
-  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
   pointer-events: none;
+  z-index: 8;
+}
+
+.fab-shell {
+  width: min(100%, 420px);
+  display: flex;
+  justify-content: flex-end;
 }
 
 .fab {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  margin-left: auto;
   margin-right: 16px;
   pointer-events: auto;
   display: grid;

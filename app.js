@@ -254,6 +254,42 @@ function normalizeBarcode(value) {
   return String(value || "").replace(/\s+/g, "").trim();
 }
 
+function buildScannerConstraints(deviceId) {
+  return {
+    video: deviceId
+      ? {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        }
+      : {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+    audio: false,
+  };
+}
+
+function scoreCameraDevice(device) {
+  const label = String(device.label || "").toLowerCase();
+  let score = 0;
+  if (/(back|rear|environment)/.test(label)) score += 100;
+  if (/(front|user|selfie)/.test(label)) score -= 120;
+  if (/(wide|ultra|0\.5|macro|depth|tele|zoom|periscope|portrait)/.test(label)) score -= 60;
+  if (/(main|primary|standard|default)/.test(label)) score += 30;
+  return score;
+}
+
+async function getPreferredBackCameraId() {
+  if (!navigator.mediaDevices?.enumerateDevices) return "";
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoInputs = devices.filter((device) => device.kind === "videoinput");
+  if (!videoInputs.length) return "";
+  const sorted = [...videoInputs].sort((left, right) => scoreCameraDevice(right) - scoreCameraDevice(left));
+  return sorted[0]?.deviceId || "";
+}
+
 function findTemplateByBarcode(barcode) {
   const normalized = normalizeBarcode(barcode);
   return state.templates.find((item) => item.barcode === normalized) || null;
@@ -481,7 +517,7 @@ function render() {
     <div class="page">
       ${pageContent}
       ${state.page === "manage" ? renderBottomNav() : ""}
-      ${state.page === "manage" ? '<div class="fab-layer"><button class="fab fab-scan" data-action="open-scanner" aria-label="扫描条形码"><span class="fab-scan-icon"><span></span><span class="fab-scan-line"></span></span></button></div>' : ""}
+      ${state.page === "manage" ? '<div class="fab-layer"><div class="fab-shell"><button class="fab fab-scan" data-action="open-scanner" aria-label="扫描条形码"><span class="fab-scan-icon"><span></span><span class="fab-scan-line"></span></span></button></div></div>' : ""}
       ${state.scanner.open ? renderScannerSheet() : ""}
       ${state.scanResult ? renderScanResultSheet() : ""}
     </div>
@@ -969,12 +1005,14 @@ async function startScanner(video) {
   try {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-      },
-      audio: false,
-    });
+    let stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints());
+    const preferredDeviceId = await getPreferredBackCameraId();
+    const currentTrack = stream.getVideoTracks()[0];
+    const currentDeviceId = currentTrack?.getSettings?.().deviceId || "";
+    if (preferredDeviceId && preferredDeviceId !== currentDeviceId) {
+      stream.getTracks().forEach((track) => track.stop());
+      stream = await navigator.mediaDevices.getUserMedia(buildScannerConstraints(preferredDeviceId));
+    }
     state.scanner.stream = stream;
     state.scanner.detector = new window.BarcodeDetector({
       formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"],
@@ -1036,12 +1074,9 @@ async function startZxingScanner(video) {
     state.scanner.status = "opening";
     state.scanner.message = "正在打开摄像头...";
     const reader = new window.ZXingBrowser.BrowserMultiFormatReader();
+    const preferredDeviceId = await getPreferredBackCameraId();
     const controls = await reader.decodeFromConstraints(
-      {
-        video: {
-          facingMode: { ideal: "environment" },
-        },
-      },
+      buildScannerConstraints(preferredDeviceId).video ? buildScannerConstraints(preferredDeviceId) : buildScannerConstraints(),
       video,
       (result, error, localControls) => {
         if (result?.getText()) {
